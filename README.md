@@ -56,25 +56,39 @@ Use Docker Compose to orchestrate the environment:
 
 ## Quick Start
 
-### 1. Clone & Setup
+### 1. Networking (One-Time Setup)
+The agent uses a persistent external bridge network to ensure connectivity between memory services, the gateway, and other ROS 2 nodes.
+```bash
+docker network create agent-net
+```
+
+### 2. Configuration
 ```bash
 git clone https://github.com/bob-ros2/bob_edge.git
 cd bob_edge
 cp .env.template .env
-# Edit .env and /volume1/ros/secrets/edge_agent.env with your credentials
+# Important: Update /volume1/ros/secrets/edge_agent.env with your keys!
 ```
 
-### 2. Launch Memory Infrastructure
-Start the database and cache services first:
+### 3. Production Launch (Multi-Arch: AMD64 & ARM64)
+The images are published as multi-arch manifests on GHCR. Docker will automatically pull the correct version for your hardware (e.g., Raspberry Pi or Dev-PC).
+
+**Pull the latest pre-built images:**
+```bash
+docker compose -f docker/compose-memory.yaml pull
+docker compose -f docker/compose-base.yaml pull
+```
+
+**Start without local build:**
 ```bash
 docker compose -f docker/compose-memory.yaml up -d
+docker compose -f docker/compose-base.yaml up -d --no-build
 ```
 
-### 3. Build & Launch Agent
-Build the custom ROS 2 image and start the core logic:
+### 4. Development (Local Build)
+If you are modifying the core logic and want to test changes locally:
 ```bash
-docker compose -f docker/compose-base.yaml build
-docker compose -f docker/compose-base.yaml up -d
+docker compose -f docker/compose-base.yaml up -d --build
 ```
 
 ---
