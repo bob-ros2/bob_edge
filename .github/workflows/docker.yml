@@ -34,28 +34,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Build and push AMD64 (aliased as latest)
-      - name: Build and push AMD64
+      # Build and push Multi-Arch Image (AMD64 & ARM64)
+      - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./docker/Dockerfile.base
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.IMAGE_BASE }}:amd64
             ${{ env.IMAGE_BASE }}:latest
-          build-args: |
-            CACHE_BUST=${{ github.run_id }}
-
-      # Build and push ARM64
-      - name: Build and push ARM64
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./docker/Dockerfile.base
-          platforms: linux/arm64
-          push: true
-          tags: ${{ env.IMAGE_BASE }}:arm64
+            ${{ env.IMAGE_BASE }}:amd64
+            ${{ env.IMAGE_BASE }}:arm64
+            ${{ env.IMAGE_BASE }}:${{ github.run_id }}
           build-args: |
             CACHE_BUST=${{ github.run_id }}
