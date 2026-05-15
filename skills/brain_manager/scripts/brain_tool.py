@@ -54,21 +54,21 @@ def get_available_models():
     report += '-------------------------------------------\n'
 
     if chat:
-        report += 'MODE: \'chat\' (Fast Interaction)\n'
+        report += 'MODE: "chat" (Fast Interaction)\n'
         report += f'MODEL_NAME: {chat}\n'
         report += 'PURPOSE: Default mode for standard conversation and simple tasks.\n\n'
     else:
-        report += 'MODE: \'chat\' -> [ERROR] Not configured in environment.\n\n'
+        report += 'MODE: "chat" -> [ERROR] Not configured in environment.\n\n'
 
     if reasoner:
-        report += 'MODE: \'reasoner\' (Deep Logic)\n'
+        report += 'MODE: "reasoner" (Deep Logic)\n'
         report += f'MODEL_NAME: {reasoner}\n'
         report += 'PURPOSE: Use this for complex coding, debugging, and planning.\n'
     else:
-        report += 'MODE: \'reasoner\' -> [NOT_AVAILABLE] No reasoning model configured.\n'
+        report += 'MODE: "reasoner" -> [NOT_AVAILABLE] No reasoning model configured.\n'
 
     report += '-------------------------------------------\n'
-    report += 'INSTRUCTION: Copy the MODEL_NAME and use the \'set_parameter\' tool.'
+    report += 'INSTRUCTION: Copy the MODEL_NAME and use the "set_parameter" tool.'
 
     return report
 

@@ -232,7 +232,7 @@ class OrchestratorNode(Node):
             time.sleep(1.2)
 
             history = self.user_contexts.get(username, 'Keine rezenten Informationen verfügbar.')
-            user_ctx_str = f' [User \'{username}\' History:\n{history}]'
+            user_ctx_str = f' [User "{username}" History:\n{history}]'
             self.get_logger().info(f'Injected context for {username} ({len(history)} bytes)')
             if username == 'support':
                 user_ctx_str += (
