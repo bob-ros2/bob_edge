@@ -1,0 +1,46 @@
+name: agent-memory
+
+services:
+  # -- SHORT-TERM MEMORY (Scratchpad) --
+  redis-memory:
+    image: redis:alpine
+    container_name: agent-redis
+    user: "1000:1000"
+    networks:
+      - agent-net
+    volumes:
+      - /volume1/ros/agent/data/redis:/data
+    command: redis-server --save 60 1 --loglevel warning
+    restart: always
+
+  # -- LONG-TERM JSON & CHAT --
+  couchdb:
+    image: apache/couchdb:latest
+    container_name: agent-couchdb
+    user: "1000:1000"
+    networks:
+      - agent-net
+    ports:
+      - "5984:5984"
+    env_file:
+      - ../.env
+      - /volume1/ros/secrets/edge_agent.env
+    volumes:
+      - /volume1/ros/agent/data/couchdb:/opt/couchdb/data
+    restart: always
+
+  # -- LONG-TERM VECTOR (Code & Embeddings) --
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: agent-qdrant
+    networks:
+      - agent-net
+    ports:
+      - "6333:6333"
+    volumes:
+      - /volume1/ros/agent/data/qdrant:/qdrant/storage
+    restart: always
+
+networks:
+  agent-net:
+    external: true

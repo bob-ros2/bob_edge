@@ -1,0 +1,47 @@
+name: agent-edge
+
+services:
+  # -- GATEWAY: API SECURE PROXY --
+  api-gateway:
+    image: nginx:alpine
+    container_name: agent-api-gate
+    networks:
+      - agent-net
+    env_file:
+      - ../.env
+      - /volume1/ros/secrets/edge_agent.env
+    volumes:
+      - ../config/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    restart: always
+
+  # -- CORE: (Brain & Logic) --
+  base:
+    image: ghcr.io/bob-ros2/bob-edge:latest
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile.base
+      args:
+        ROS_DISTRO: ${ROS_DISTRO:-humble}
+    container_name: agent-edge
+    networks:
+      - agent-net
+    dns:
+      - 192.168.32.100
+      - 8.8.8.8
+      - 8.8.4.4
+    env_file:
+      - ../.env
+      - /volume1/ros/secrets/edge_agent.env
+    environment:
+      - BOB_LAUNCH_AUTOABORT=0
+      - AGENT_ID=${AGENT_ID:-main_agent}
+    restart: on-failure
+    volumes:
+      - ../:/ros2_ws/src/bob_edge:ro
+      - /volume1/ros/agent:/home/rosuser/agent # Persistent home for the agent
+      - /volume1/ros/agent/tmp:/tmp
+    command: ros2 launch bob_launch generic.launch.py config:=/ros2_ws/src/bob_edge/launch/base_launch.yaml
+
+networks:
+  agent-net:
+    external: true

@@ -1,0 +1,10 @@
+[flake8]
+import-order-style = google
+max-line-length = 99
+inline-quotes = single
+multiline-quotes = single
+docstring-quotes = double
+ignore = D100, D101, D102, D103, D104, D105, D106, D107
+select = C,E,F,W,B,B9,I,Q
+application-import-names = bob_edge
+exclude = .git,__pycache__,build,install,test,skills/core_coder/scripts/experimental

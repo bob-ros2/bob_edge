@@ -1,0 +1,3 @@
+redis>=5.0.0
+qdrant-client[fastembed]>=1.8.0
+requests>=2.31.0

@@ -1,0 +1,134 @@
+# --- Bob Edge Base Launch ---
+
+- &api_orchestrator "${ORCHESTRATOR_API_URL}"
+
+- &base_ns    "__ns:=/agent"
+- &log_level "debug"
+
+# Topics / Remappings
+- &logic_user_query    "user_query:=/agent/user_query"
+- &logic_agent_stream  "internal/agent_stream:=/agent/agent_brain/internal/agent_stream"
+- &support_query       "support_query:=/agent/support_brain/user_query"
+- &support_response    "support_response:=/agent/support_brain/response"
+- &llm_trigger         "llm_query_trigger:=/agent/llm_query_trigger"
+
+# Internal LLM Mesh Routing
+- &brain_prompt        "llm_prompt:=/agent/logic/internal/query_timed"
+- &brain_response      "llm_response:=/agent/logic/internal/specialist_response"
+- &support_prompt      "llm_prompt:=/agent/support_brain/user_query"
+- &support_response_ep "llm_response:=/agent/support_brain/response"
+
+
+# Internal Logic (Identity & Time Injector)
+- name: logic
+  package: bob_edge
+  executable: orchestrator
+  respawn: true
+  output: screen
+  arguments:
+    - --ros-args
+    - --log-level
+    - info
+    - -p
+    - "busy_timeout:=300.0"
+    - -r
+    - *logic_user_query
+    - -r
+    - "user_query_timed:=~/internal/query_timed"
+    - -r
+    - "user_response:=~/internal/full_response_text"
+    - -r
+    - "brain_mesh_routing:=~/internal/mesh_routing"
+    - -r
+    - "specialist_response:=~/internal/specialist_response"
+    - -r
+    - *logic_agent_stream
+    - -r
+    - *support_query
+    - -r
+    - *support_response
+    - -r
+    - *llm_trigger
+    - -r
+    - *base_ns
+
+
+# Agent: The Core Consciousness (Deep Reasoning)
+- name: agent_brain
+  package: bob_llm
+  executable: llm
+  respawn: true
+  output: screen
+  parameters:
+    api_url: *api_orchestrator
+    api_key: "${ORCHESTRATOR_API_KEY}"
+    api_model: "${ORCHESTRATOR_MODEL_CHAT}"
+    api_timeout: 180.0
+    system_prompt_file: "//PKGSHARE:bob_edge/prompts/orchestrator.md"
+    stream: true
+    max_tool_calls: 30
+    max_tokens: 6000
+    max_history_length: 25
+    temperature: 0.2
+    presence_penalty: 1.2
+    skill_dir: "/ros2_ws/src/bob_edge/skills,/home/rosuser/agent/skills"
+    tool_interfaces: 
+       - "//PKGSHARE:bob_llm/config/skill_tools.py"
+       - "//PKGSHARE:bob_llm/config/ros_cli_tools.py"
+  arguments:
+    - --ros-args
+    - --log-level
+    - *log_level
+    - -r
+    - *brain_prompt
+    - -r
+    - *brain_response
+    - -r
+    - "llm_stream:=~/internal/agent_stream"
+    - -r
+    - *base_ns
+
+
+# Support Assistant: For Busy States
+- name: support_brain
+  package: bob_llm
+  executable: llm
+  respawn: true
+  output: screen
+  parameters:
+    api_url: *api_orchestrator
+    api_key: "${ORCHESTRATOR_API_KEY}"
+    api_model: "${ORCHESTRATOR_MODEL_CHAT}"
+    api_timeout: 30.0
+    system_prompt_file: "//PKGSHARE:bob_edge/prompts/support.md"
+    stream: true
+    max_tool_calls: 1
+    max_tokens: 500
+    max_history_length: 10
+    temperature: 0.5
+    tool_interfaces: ['']
+  arguments:
+    - --ros-args
+    - --log-level
+    - *log_level
+    - -r
+    - *support_prompt
+    - -r
+    - *support_response_ep
+    - -r
+    - "llm_stream:=~/internal/support_stream"
+    - -r
+    - *base_ns
+
+# REPL: Persistent Engineering Session
+- name: repl
+  package: bob_edge
+  executable: repl
+  respawn: true
+  output: screen
+  arguments:
+    - --ros-args
+    - --log-level
+    - info
+    - -r
+    - *base_ns
