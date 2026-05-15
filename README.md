@@ -85,10 +85,23 @@ docker compose -f docker/compose-memory.yaml up -d
 docker compose -f docker/compose-base.yaml up -d --no-build
 ```
 
-### 4. Development (Local Build)
-If you are modifying the core logic and want to test changes locally:
+### 5. Interaction (Chat CLI)
+To talk to the agent, you can use the built-in chat client from the `bob_llm` package.
+
+**Enter the running container:**
 ```bash
-docker compose -f docker/compose-base.yaml up -d --build
+docker exec -it agent-edge bash
+```
+
+**Launch the Chat Client:**
+```bash
+ros2 run bob_llm chat \
+  --topic_in /agent/user_query \
+  --topic_out /agent/llm_stream \
+  --topic_response /agent/logic/internal/full_response_text \
+  --topic_tools /agent/llm_tool_calls \
+  --topic_reasoning /agent/llm_reasoning \
+  --panels
 ```
 
 ---
