@@ -9,19 +9,12 @@ on:
 jobs:
   build_and_test:
     runs-on: ubuntu-latest
-    container:
-      image: ros:humble
     steps:
       - uses: actions/checkout@v3
-      - name: Build
-        run: |
-          . /opt/ros/humble/setup.sh
-          mkdir -p ros2_ws/src
-          ln -s ../.. ros2_ws/src/bob_edge
-          cd ros2_ws
-          colcon build --packages-select bob_edge
-      - name: Test
-        run: |
-          . /opt/ros/humble/setup.sh
-          cd ros2_ws
-          colcon test --packages-select bob_edge
+      - uses: ros-tooling/setup-ros@v0.6
+        with:
+          required-ros-distributions: humble
+      - uses: ros-tooling/action-ros-ci@v0.3
+        with:
+          package-name: bob_edge
+          target-ros2-distro: humble
