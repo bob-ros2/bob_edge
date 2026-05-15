@@ -112,9 +112,9 @@ def test_setup_cfg_consistency():
     # Check: Valid targets
     for name, target in entry_points.items():
         module_name = target.split(':')[0].split('.')[-1]
-        assert module_name.endswith('_node'), f"'{name}' points to non-node module."
+        assert module_name.endswith('_node'), f'\'{name}\' points to non-node module.'
         file_path = os.path.join(SOURCE_DIR, f'{module_name}.py')
-        assert os.path.exists(file_path), f"'{name}' points to missing file: {file_path}"
+        assert os.path.exists(file_path), f'\'{name}\' points to missing file: {file_path}'
 
 
 # --- Skills Guideline Tests ---

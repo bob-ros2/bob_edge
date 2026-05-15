@@ -62,8 +62,8 @@ def get_couchdb_auth_header():
 
 def couchdb_store(db_name, doc_id, data_str):
     base_url = os.environ.get('COUCHDB_URL', 'http://agent-couchdb:5984').rstrip('/')
-    url = f"{base_url}/{db_name}/{doc_id}"
-    db_url = f"{base_url}/{db_name}"
+    url = f'{base_url}/{db_name}/{doc_id}'
+    db_url = f'{base_url}/{db_name}'
     auth_header = get_couchdb_auth_header()
 
     try:
@@ -99,7 +99,7 @@ def couchdb_store(db_name, doc_id, data_str):
         )
         req.add_header('Authorization', auth_header)
         res = urllib.request.urlopen(req)
-        print(f'Stored successfully in CouchDB: {res.read().decode("utf-8")}')
+        print(f"Stored successfully in CouchDB: {res.read().decode('utf-8')}")
     except Exception as e:
         print(f'Failed to store in CouchDB: {e}', file=sys.stderr)
         sys.exit(1)
@@ -107,7 +107,7 @@ def couchdb_store(db_name, doc_id, data_str):
 
 def couchdb_fetch(db_name, doc_id):
     base_url = os.environ.get('COUCHDB_URL', 'http://agent-couchdb:5984').rstrip('/')
-    url = f"{base_url}/{db_name}/{doc_id}"
+    url = f'{base_url}/{db_name}/{doc_id}'
     try:
         req = urllib.request.Request(url)
         req.add_header('Authorization', get_couchdb_auth_header())

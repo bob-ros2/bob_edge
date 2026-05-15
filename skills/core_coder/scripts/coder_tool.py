@@ -37,7 +37,7 @@ def read_file(path: str, start_line: int = 1, end_line: int = 800) -> str:
     :return: File content or error message.
     """
     if not os.path.exists(path):
-        return f"Error: File '{path}' not found."
+        return f'Error: File \'{path}\' not found.'
 
     try:
         with open(path, 'r', encoding='utf-8') as f:
@@ -70,7 +70,7 @@ def write_file(path: str, content: str, overwrite: bool = True) -> str:
     :return: Success or error message.
     """
     if os.path.exists(path) and not overwrite:
-        return f"Error: File '{path}' already exists and overwrite is False."
+        return f'Error: File \'{path}\' already exists and overwrite is False.'
 
     try:
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
@@ -91,7 +91,7 @@ def list_dir(path: str = '.') -> str:
     :return: Formatted list of contents.
     """
     if not os.path.exists(path):
-        return f"Error: Path '{path}' not found."
+        return f'Error: Path \'{path}\' not found.'
 
     try:
         items = os.listdir(path)
@@ -197,7 +197,7 @@ def main():
         elif args.func == 'search_text':
             print(search_text(args.path or '.', args.query, args.pattern))
         else:
-            print(f"Error: Unknown function '{args.func}'")
+            print(f'Error: Unknown function \'{args.func}\'')
             sys.exit(1)
     except Exception as e:
         print(f'CLI Error: {str(e)}')

@@ -32,14 +32,14 @@ def search_web(query: str, num_results: int = 3) -> str:
     """
     # Use the centralized gateway URL if available, fallback to internal nginx
     searxng_url = os.environ.get(
-        "MASTER_SEARXNG_URL",
-        "http://api-gateway:8080/search"
+        'MASTER_SEARXNG_URL',
+        'http://api-gateway:8080/search'
     )
 
     params = {
-        "q": query,
-        "format": "json",
-        "language": os.environ.get("MASTER_SEARXNG_LANGUAGE", "en-US")
+        'q': query,
+        'format': 'json',
+        'language': os.environ.get('MASTER_SEARXNG_LANGUAGE', 'en-US')
     }
 
     try:
@@ -48,40 +48,40 @@ def search_web(query: str, num_results: int = 3) -> str:
         data = response.json()
 
         results = []
-        for res in data.get("results", [])[:num_results]:
+        for res in data.get('results', [])[:num_results]:
             results.append({
-                "title": res.get("title", ""),
-                "content": res.get("content", ""),
-                "url": res.get("url", ""),
-                "score": res.get("score", 0.0)
+                'title': res.get('title', ''),
+                'content': res.get('content', ''),
+                'url': res.get('url', ''),
+                'score': res.get('score', 0.0)
             })
 
         if not results:
-            return json.dumps({"status": "no_results", "message": "No relevant matches found."})
+            return json.dumps({'status': 'no_results', 'message': 'No relevant matches found.'})
 
         return json.dumps(
-            {"status": "success", "query": query, "results": results},
+            {'status': 'success', 'query': query, 'results': results},
             ensure_ascii=False,
             indent=2
         )
 
     except requests.exceptions.RequestException as e:
-        return json.dumps({"status": "error", "type": "network_error", "message": str(e)})
+        return json.dumps({'status': 'error', 'type': 'network_error', 'message': str(e)})
     except Exception as e:
-        return json.dumps({"status": "error", "type": "system_error", "message": str(e)})
+        return json.dumps({'status': 'error', 'type': 'system_error', 'message': str(e)})
 
 
 def main():
     """CLI entrypoint for the web search skill."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Web Research Tool")
-    parser.add_argument("--query", "-q", required=True, help="Search query")
-    parser.add_argument("--num_results", "-n", type=int, default=3, help="Max results")
+    parser = argparse.ArgumentParser(description='Web Research Tool')
+    parser.add_argument('--query', '-q', required=True, help='Search query')
+    parser.add_argument('--num_results', '-n', type=int, default=3, help='Max results')
 
     # Handle cases where args might be passed without flags for compatibility
-    if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
-        query = " ".join(sys.argv[1:])
+    if len(sys.argv) > 1 and not sys.argv[1].startswith('-'):
+        query = ' '.join(sys.argv[1:])
         print(search_web(query))
         return
 
@@ -89,5 +89,5 @@ def main():
     print(search_web(args.query, args.num_results))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
