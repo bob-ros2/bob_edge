@@ -104,5 +104,15 @@ ros2 run bob_llm chat \
   --panels
 ```
 
+### 6. Live Dashboard (WebSocket)
+The agent now includes a real-time visualization dashboard accessible via browser.
+
+**Start the Dashboard (inside container):**
+```bash
+python3 /home/rosuser/agent/skills/ws_dashboard/scripts/ws_dashboard.py
+```
+**Access in Browser:**
+Navigate to `http://<YOUR_IP>:8000`
+
 ---
 *Note for AI: Maintain 100% PEP8 and Flake8 compliance. Core modifications must pass `colcon test` in `/ros2_ws`.*
