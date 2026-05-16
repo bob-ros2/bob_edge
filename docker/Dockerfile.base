@@ -38,6 +38,11 @@ RUN useradd -m -u 1000 -s /bin/bash rosuser
 # Secure the workspace - root owns everything, rosuser can only read/execute
 RUN chown -R root:root /ros2_ws
 
+# Deploy BashRC
+COPY ./config/_bashrc /root/.bashrc
+COPY ./config/_bashrc /home/rosuser/.bashrc
+RUN chown rosuser:rosuser /home/rosuser/.bashrc
+
 # Entrypoint
 RUN echo "#!/bin/bash\nsource /opt/ros/\${ROS_DISTRO}/setup.bash\nsource /ros2_ws/install/setup.bash\nexec \"\$@\"" > /ros_entrypoint.sh \
     && chmod +x /ros_entrypoint.sh
