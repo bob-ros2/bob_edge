@@ -24,6 +24,11 @@ import pytest
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 SOURCE_DIR = os.path.join(ROOT, 'bob_edge')
 SKILLS_ROOT = os.path.join(ROOT, 'skills')
+# Path for learned/autonomous skills (usually host-mapped volume)
+PERSISTENT_SKILLS_ROOT = os.environ.get(
+    'PERSISTENT_SKILLS_PATH',
+    '/volume1/ros/agent/skills'
+)
 SETUP_CFG = os.path.join(SOURCE_DIR, 'setup.cfg')
 
 # Constants
@@ -33,21 +38,27 @@ ALLOWED_IN_SKILLS_ROOT = {'.gitkeep', 'TEMPLATE_SPEC.md'}
 # --- Helper Functions ---
 
 def get_skill_dirs():
-    """Return list of skill directories under SKILLS_ROOT."""
-    if not os.path.exists(SKILLS_ROOT):
-        return []
-    return [
-        d for d in os.listdir(SKILLS_ROOT)
-        if os.path.isdir(os.path.join(SKILLS_ROOT, d))
-        and not d.startswith('.')
-    ]
+    """Return list of all skill directories from both core and persistent roots."""
+    roots = [SKILLS_ROOT]
+    if os.path.exists(PERSISTENT_SKILLS_ROOT):
+        roots.append(PERSISTENT_SKILLS_ROOT)
+
+    skill_entries = []
+    for root in roots:
+        if not os.path.exists(root):
+            continue
+        for d in os.listdir(root):
+            full_path = os.path.join(root, d)
+            if os.path.isdir(full_path) and not d.startswith('.'):
+                skill_entries.append((root, d, full_path))
+    return skill_entries
 
 
 def get_all_scripts():
     """Return list of all script files under skills/<skill>/scripts/."""
     scripts = []
-    for skill in get_skill_dirs():
-        scripts_dir = os.path.join(SKILLS_ROOT, skill, 'scripts')
+    for root, skill, skill_dir in get_skill_dirs():
+        scripts_dir = os.path.join(skill_dir, 'scripts')
         if not os.path.isdir(scripts_dir):
             continue
         for fname in os.listdir(scripts_dir):
@@ -134,23 +145,23 @@ def test_no_stray_files_in_skills_root():
 def test_no_stray_files_in_skill_dirs():
     """No files allowed in skills/<skill>/ except SKILL.md, docs and .gitignore."""
     violations = []
-    for skill in get_skill_dirs():
-        skill_dir = os.path.join(SKILLS_ROOT, skill)
+    for root, skill, skill_dir in get_skill_dirs():
         for entry in os.listdir(skill_dir):
             full_path = os.path.join(skill_dir, entry)
+            # We only check files at the skill root level
             if not os.path.isfile(full_path):
                 continue
             if entry == 'SKILL.md' or entry.endswith('.md') or entry == '.gitignore':
                 continue
-            violations.append(f'skills/{skill}/{entry}')
+            violations.append(f'{os.path.basename(root)}/{skill}/{entry}')
     assert not violations, f'Stray files in skill dirs: {violations}'
 
 
 def test_skill_dirs_have_skill_md():
     """Every skill directory must contain a SKILL.md file."""
     missing = [
-        f'skills/{s}/SKILL.md' for s in get_skill_dirs()
-        if not os.path.isfile(os.path.join(SKILLS_ROOT, s, 'SKILL.md'))
+        f'{os.path.basename(root)}/{s}/SKILL.md' for root, s, sp in get_skill_dirs()
+        if not os.path.isfile(os.path.join(sp, 'SKILL.md'))
     ]
     assert not missing, f'Missing SKILL.md in: {missing}'
 
@@ -158,7 +169,7 @@ def test_skill_dirs_have_skill_md():
 def test_scripts_are_executable():
     """All script files under skills/<skill>/scripts/ must be executable."""
     violations = [
-        f'skills/{s}/scripts/{fn}' for s, fn, fp in get_all_scripts()
+        f'{s}/scripts/{fn}' for s, fn, fp in get_all_scripts()
         if not (os.stat(fp).st_mode & stat.S_IXUSR)
     ]
     assert not violations, f'Scripts missing +x: {violations}'
@@ -171,7 +182,7 @@ def test_scripts_have_shebang():
         try:
             with open(fp, 'rb') as f:
                 if f.read(2) != b'#!':
-                    violations.append(f'skills/{s}/scripts/{fn}')
+                    violations.append(f'{s}/scripts/{fn}')
         except Exception:
-            violations.append(f'skills/{s}/scripts/{fn} (read error)')
+            violations.append(f'{s}/scripts/{fn} (read error)')
     assert not violations, f'Scripts missing shebang: {violations}'
