@@ -23,6 +23,8 @@ services:
       args:
         ROS_DISTRO: ${ROS_DISTRO:-humble}
     container_name: agent-edge
+    ports:
+      - "8000:8000"
     networks:
       - agent-net
     dns:
