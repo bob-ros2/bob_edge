@@ -21,3 +21,10 @@ alias ls='ls --color=auto'
 alias rt='ros2 topic list'
 alias rn='ros2 node list'
 alias test_agent='python3 -m pytest /ros2_ws/src/bob_edge/tests/test_repo.py'
+
+alias chat='ros2 run bob_llm chat \
+--topic_in /agent/user_query \
+--topic_out /agent/llm_stream \
+--topic_response /agent/logic/internal/full_response_text \
+--topic_tools /agent/llm_tool_calls \
+--topic_reasoning /agent/llm_reasoning'
