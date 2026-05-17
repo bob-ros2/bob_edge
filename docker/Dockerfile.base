@@ -6,6 +6,7 @@ ARG CACHE_BUST=1
 
 RUN apt-get update && apt-get install -y \
     python3-pip \
+    python3-pytest \
     vim \
     curl \
     git \
