@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     vim \
     curl \
     git \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /ros2_ws
@@ -47,8 +48,9 @@ RUN chown rosuser:rosuser /home/rosuser/.bashrc
 RUN echo "#!/bin/bash\nsource /opt/ros/\${ROS_DISTRO}/setup.bash\nsource /ros2_ws/install/setup.bash\nexec \"\$@\"" > /ros_entrypoint.sh \
     && chmod +x /ros_entrypoint.sh
 
-# Switch to the new non-root user
+# Switch to the non-root user
 USER rosuser
+WORKDIR /home/rosuser
 
 ENTRYPOINT ["/ros_entrypoint.sh"]
 
