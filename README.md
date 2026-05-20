@@ -114,5 +114,33 @@ python3 /home/rosuser/agent/skills/ws_dashboard/scripts/ws_dashboard.py
 **Access in Browser:**
 Navigate to `http://<YOUR_IP>:8000`
 
+### 7. Remote ROS 2 Connection via Zenoh (zenoh-bridge-ros2dds)
+To connect two isolated ROS 2 environments (e.g., an edge device and a local dev PC) across different networks or Docker environments, use the dedicated ROS 2 Zenoh bridge (`zenoh-bridge-ros2dds`). This bridge natively understands ROS 2 discovery and correctly maps the Node graph.
+
+*Important:* Both sides must use the same `ROS_DISTRO` variable (e.g., `humble`) to ensure compatible DDS GID lengths (24-byte in Humble vs 16-byte in Iron+).
+
+**1. On the Edge Device (e.g., Raspberry Pi):**
+Start the bridge, forcing it to listen on a fixed port (`7447`):
+```bash
+docker run -d --name agent-zenoh-bridge \
+  --network agent-net \
+  -p 7447:7447/tcp \
+  -e ROS_DOMAIN_ID=55 \
+  -e ROS_DISTRO=humble \
+  eclipse/zenoh-bridge-ros2dds:latest --listen tcp/0.0.0.0:7447
+```
+
+**2. On the Local PC (Development Machine):**
+Start a local bridge instance connecting to the edge device:
+```bash
+docker run -d --name zenoh-bridge-local \
+  --net=host \
+  -e ROS_DOMAIN_ID=55 \
+  -e ROS_DISTRO=humble \
+  eclipse/zenoh-bridge-ros2dds:latest --connect tcp/<PI_IP_OR_HOSTNAME>:7447
+```
+
+*Note:* After connecting, you may need to reset the local ROS 2 daemon (`ros2 daemon stop`) so tools like `rqt_graph` or `ros2 node list` can refresh their node caches.
+
 ---
 *Note for AI: Maintain 100% PEP8 and Flake8 compliance. Core modifications must pass `colcon test` in `/ros2_ws`.*
