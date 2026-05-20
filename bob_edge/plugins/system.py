@@ -65,8 +65,10 @@ class SystemPlugin(BasePlugin):
 
     def css(self):
         return """
-        #header-stats { display: inline-flex; gap: 16px; margin-left: 20px; font-size: 13px; }
-        #header-stats .stat { display: inline-flex; align-items: center; gap: 4px; }
+        #header-stats { display: flex; flex-direction: column; gap: 8px;
+            font-size: 12px; margin-top: 16px; padding-top: 16px;
+            border-top: 1px solid #242b35; }
+        #header-stats .stat { display: flex; align-items: center; gap: 8px; }
         #header-stats .stat-label { color: #8b949e; }
         #header-stats .stat-value { color: #f0f6fc; font-weight: 500; }
         .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
@@ -92,24 +94,33 @@ class SystemPlugin(BasePlugin):
             this.maxLogLines = 80;
             this.mermaidEl = document.getElementById('mermaid-graph');
 
-            // Inject stats into title bar
-            var h1 = document.querySelector('h1');
-            var span = document.createElement('span');
-            span.id = 'header-stats';
-            span.innerHTML =
+            // Inject stats into sidebar
+            var sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            var div = document.createElement('div');
+            div.id = 'header-stats';
+            div.innerHTML =
                 '<span class="stat">' +
                     '<span class="status-dot idle" id="status-dot"></span>' +
                     '<span class="stat-value" id="status-text">IDLE</span>' +
                 '</span>' +
-                '<span class="stat"><span class="stat-label">Nodes</span>' +
-                    '<span class="stat-value" id="node-count">0</span></span>' +
-                '<span class="stat"><span class="stat-label">Topics</span>' +
-                    '<span class="stat-value" id="topic-count">0</span></span>' +
-                '<span class="stat"><span class="stat-label">Uptime</span>' +
-                    '<span class="stat-value" id="uptime">0s</span></span>' +
-                '<span class="stat"><span class="stat-label">LLM</span>' +
-                    '<span class="stat-value" id="llm-model">\u2014</span></span>';
-            h1.appendChild(span);
+                '<span class="stat">' +
+                    '<span class="stat-label">Nodes</span>' +
+                    '<span class="stat-value" id="node-count">0</span>' +
+                '</span>' +
+                '<span class="stat">' +
+                    '<span class="stat-label">Topics</span>' +
+                    '<span class="stat-value" id="topic-count">0</span>' +
+                '</span>' +
+                '<span class="stat">' +
+                    '<span class="stat-label">Uptime</span>' +
+                    '<span class="stat-value" id="uptime">0s</span>' +
+                '</span>' +
+                '<span class="stat">' +
+                    '<span class="stat-label">LLM</span>' +
+                    '<span class="stat-value" id="llm-model">\u2014</span>' +
+                '</span>';
+            sidebar.appendChild(div);
 
             // Uptime clock
             setInterval(function() {
