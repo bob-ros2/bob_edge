@@ -19,36 +19,36 @@ from bob_edge.plugins.base import BasePlugin
 
 
 class SystemPlugin(BasePlugin):
-    name = "system"
-    display_name = "System Status"
+    name = 'system'
+    display_name = 'System Status'
     topics = [
-        "/agent/llm_stream",
-        "/agent/llm_reasoning",
-        "/agent/llm_tool_calls",
-        "/agent/user_query",
-        "/agent/logic/internal/specialist_response",
-        "/agent/logic/internal/full_response_text",
-        "/agent/internal/status",
-        "/agent/repl/status",
-        "/agent/agent_brain/internal/agent_stream",
+        '/agent/llm_stream',
+        '/agent/llm_reasoning',
+        '/agent/llm_tool_calls',
+        '/agent/user_query',
+        '/agent/logic/internal/specialist_response',
+        '/agent/logic/internal/full_response_text',
+        '/agent/internal/status',
+        '/agent/repl/status',
+        '/agent/agent_brain/internal/agent_stream',
     ]
-    grid_class = "card"
+    grid_class = 'card'
 
     def __init__(self):
         super().__init__()
-        self._llm_model = "—"
+        self._llm_model = '\u2014'
 
     def on_ros_msg(self, topic: str, data: str, ts: float):
-        self.send_ws("topic_msg", {"topic": topic, "data": data[:300], "ts": ts})
+        self.send_ws('topic_msg', {'topic': topic, 'data': data[:300], 'ts': ts})
 
         # Busy on stream activity
-        if topic in ("/agent/agent_brain/internal/agent_stream", "/agent/llm_stream"):
+        if topic in ('/agent/agent_brain/internal/agent_stream', '/agent/llm_stream'):
             if data.strip():
-                self.send_ws("busy", {"busy": True})
+                self.send_ws('busy', {'busy': True})
 
         # Idle on response done
-        if topic == "/agent/logic/internal/full_response_text":
-            self.send_ws("busy", {"busy": False})
+        if topic == '/agent/logic/internal/full_response_text':
+            self.send_ws('busy', {'busy': False})
 
     def html(self):
         return """
