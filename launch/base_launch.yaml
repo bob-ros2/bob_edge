@@ -132,3 +132,17 @@
     - info
     - -r
     - *base_ns
+
+
+# WS Dashboard
+- name: ws_dashboard
+  package: bob_edge
+  executable: ws_dashboard
+  respawn: true
+  output: screen
+  arguments:
+    - --ros-args
+    - --log-level
+    - info
+    - -r
+    - *base_ns
