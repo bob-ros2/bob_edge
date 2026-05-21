@@ -21,7 +21,7 @@ Mehrere Szenen im Dashboard:
 - Wireframe-Objekte (dynamisch)
 - Token-Stream Visualisierung
 """
-import json
+
 import math
 import random
 import threading

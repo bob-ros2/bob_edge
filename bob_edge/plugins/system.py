@@ -50,6 +50,17 @@ class SystemPlugin(BasePlugin):
         if topic == '/agent/logic/internal/full_response_text':
             self.send_ws('busy', {'busy': False})
 
+        # Sync busy state with orchestrator status heartbeat
+        if topic == '/agent/internal/status':
+            try:
+                import json
+                status_dict = json.loads(data)
+                if 'Orchestrator' in status_dict:
+                    state = status_dict['Orchestrator'].get('State', 'IDLE')
+                    self.send_ws('busy', {'busy': (state == 'BUSY')})
+            except Exception:
+                pass
+
     def html(self):
         return """
         <div class="card full" id="plugin-system-graph">
