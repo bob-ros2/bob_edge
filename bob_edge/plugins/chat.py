@@ -62,7 +62,10 @@ class ChatPlugin(BasePlugin):
     def _html(self):
         return """
         <div class="card full" id="plugin-chat">
-            <h2>💬 Chat <button id="chat-tts-toggle" title="Sprachausgabe (vorlesen)">🔇</button></h2>
+            <h2>💬 Chat 
+                <button id="chat-tts-toggle" title="Sprachausgabe (vorlesen)">🔇</button>
+                <select id="chat-voice-select" title="Stimme auswählen"></select>
+            </h2>
             <div id="chat-messages"></div>
             <div id="chat-input-row">
                 <textarea id="chat-input" rows="2" 
@@ -81,6 +84,9 @@ class ChatPlugin(BasePlugin):
         #chat-tts-toggle { background: transparent; border: none; font-size: 16px; cursor: pointer; 
             margin-left: 8px; padding: 2px 6px; border-radius: 4px; transition: background 0.2s; }
         #chat-tts-toggle:hover { background: rgba(255, 255, 255, 0.1); }
+        #chat-voice-select { background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; 
+            border-radius: 4px; font-size: 12px; padding: 2px 4px; display: none; 
+            max-width: 150px; vertical-align: middle; margin-left: 6px; outline: none; }
         #chat-messages { flex: 1; overflow-y: auto; padding: 8px 0; min-height: 200px; }
         #chat-input-row { display: flex; gap: 8px; border-top: 1px solid #30363d; padding-top: 12px; }
         #chat-input { flex: 1; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; 
@@ -130,16 +136,17 @@ class ChatPlugin(BasePlugin):
             this.inputEl = document.getElementById('chat-input');
             this.sendBtn = document.getElementById('chat-send');
             this.ttsToggle = document.getElementById('chat-tts-toggle');
+            this.voiceSelect = document.getElementById('chat-voice-select');
             this.currentAssistant = null;
 
             this.ttsEnabled = localStorage.getItem('chat-tts-enabled') === 'true';
             this.updateTtsButton();
 
             if (window.speechSynthesis) {
-                window.speechSynthesis.getVoices();
+                this.populateVoiceList();
                 if (window.speechSynthesis.onvoiceschanged !== undefined) {
                     window.speechSynthesis.onvoiceschanged = function() {
-                        window.speechSynthesis.getVoices();
+                        self.populateVoiceList();
                     };
                 }
             }
@@ -151,6 +158,10 @@ class ChatPlugin(BasePlugin):
                 if (!self.ttsEnabled && window.speechSynthesis) {
                     window.speechSynthesis.cancel();
                 }
+            });
+
+            this.voiceSelect.addEventListener('change', function() {
+                localStorage.setItem('chat-tts-voice', self.voiceSelect.value);
             });
 
             function sendMessage() {
@@ -179,6 +190,34 @@ class ChatPlugin(BasePlugin):
             this.ttsToggle.title = this.ttsEnabled ? 'Sprachausgabe aktiv (klicken zum Stummschalten)' : 'Sprachausgabe inaktiv (klicken zum Aktivieren)';
         },
 
+        populateVoiceList: function() {
+            if (!window.speechSynthesis || !this.voiceSelect) return;
+            var voices = window.speechSynthesis.getVoices();
+            var deVoices = voices.filter(function(v) { return v.lang.startsWith('de'); });
+            
+            this.voiceSelect.innerHTML = '';
+            
+            if (deVoices.length === 0) {
+                this.voiceSelect.style.display = 'none';
+                return;
+            }
+            
+            this.voiceSelect.style.display = 'inline-block';
+            var savedVoiceName = localStorage.getItem('chat-tts-voice');
+            var self = this;
+            
+            deVoices.forEach(function(voice) {
+                var option = document.createElement('option');
+                option.value = voice.name;
+                var display = voice.name.replace(/German|Deutsch/i, '').replace(/Microsoft|Google|Apple/i, '').trim();
+                option.textContent = display || voice.name;
+                if (voice.name === savedVoiceName) {
+                    option.selected = true;
+                }
+                self.voiceSelect.appendChild(option);
+            });
+        },
+
         cleanMarkdown: function(text) {
             text = text.replace(/```[\s\S]*?```/g, '');
             text = text.replace(/`([^`]+)`/g, '$1');
@@ -196,17 +235,24 @@ class ChatPlugin(BasePlugin):
             if (!cleaned) return;
             window.speechSynthesis.cancel();
             
-            // Store utterance in property to prevent garbage collection cutting off speech mid-sentence
             this.currentUtterance = new SpeechSynthesisUtterance(cleaned);
             this.currentUtterance.lang = 'de-DE';
             
             var voices = window.speechSynthesis.getVoices();
-            var deVoice = voices.find(function(v) {
-                return v.lang.startsWith('de') && (v.name.includes('Google') || v.name.includes('Natural'));
-            }) || voices.find(function(v) {
-                return v.lang.startsWith('de');
-            });
-            if (deVoice) this.currentUtterance.voice = deVoice;
+            var selectedVoiceName = localStorage.getItem('chat-tts-voice');
+            var selectedVoice = voices.find(function(v) { return v.name === selectedVoiceName; });
+            
+            if (!selectedVoice) {
+                selectedVoice = voices.find(function(v) {
+                    return v.lang.startsWith('de') && (v.name.includes('Google') || v.name.includes('Natural'));
+                }) || voices.find(function(v) {
+                    return v.lang.startsWith('de');
+                });
+            }
+            
+            if (selectedVoice) {
+                this.currentUtterance.voice = selectedVoice;
+            }
             
             var self = this;
             this.currentUtterance.onend = function() {
