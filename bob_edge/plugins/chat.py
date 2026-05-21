@@ -195,16 +195,28 @@ class ChatPlugin(BasePlugin):
             var cleaned = this.cleanMarkdown(text);
             if (!cleaned) return;
             window.speechSynthesis.cancel();
-            var utterance = new SpeechSynthesisUtterance(cleaned);
-            utterance.lang = 'de-DE';
+            
+            // Store utterance in property to prevent garbage collection cutting off speech mid-sentence
+            this.currentUtterance = new SpeechSynthesisUtterance(cleaned);
+            this.currentUtterance.lang = 'de-DE';
+            
             var voices = window.speechSynthesis.getVoices();
             var deVoice = voices.find(function(v) {
                 return v.lang.startsWith('de') && (v.name.includes('Google') || v.name.includes('Natural'));
             }) || voices.find(function(v) {
                 return v.lang.startsWith('de');
             });
-            if (deVoice) utterance.voice = deVoice;
-            window.speechSynthesis.speak(utterance);
+            if (deVoice) this.currentUtterance.voice = deVoice;
+            
+            var self = this;
+            this.currentUtterance.onend = function() {
+                self.currentUtterance = null;
+            };
+            this.currentUtterance.onerror = function() {
+                self.currentUtterance = null;
+            };
+
+            window.speechSynthesis.speak(this.currentUtterance);
         },
 
         addUserMessage: function(text) {
