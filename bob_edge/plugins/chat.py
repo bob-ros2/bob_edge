@@ -96,6 +96,8 @@ class ChatPlugin(BasePlugin):
         .chat-msg .role.assistant-role { color: #3fb950; }
         .chat-msg .content { line-height: 1.6; font-size: 14px; }
         .chat-msg .content p { margin: 4px 0; }
+        .chat-msg .content ul, .chat-msg .content ol { padding-left: 24px; margin: 8px 0; }
+        .chat-msg .content li { margin-bottom: 4px; }
         .chat-msg .content pre { background: #0d1117; border: 1px solid #30363d; 
             border-radius: 6px; padding: 12px; overflow-x: auto; margin: 8px 0; }
         .chat-msg .content code { background: #0d1117; padding: 2px 6px; border-radius: 4px; }
