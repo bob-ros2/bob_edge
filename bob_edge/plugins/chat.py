@@ -70,7 +70,6 @@ class ChatPlugin(BasePlugin):
             <div id="chat-input-row">
                 <textarea id="chat-input" rows="2" 
                     placeholder="Nachricht... (Enter senden, Shift+Enter)"></textarea>
-                <button id="chat-mic" title="Spracheingabe (zuhören)">🎤</button>
                 <button id="chat-send">➤</button>
             </div>
         </div>
@@ -93,10 +92,6 @@ class ChatPlugin(BasePlugin):
         #chat-input { flex: 1; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; 
             color: #c9d1d9; padding: 10px 12px; font-size: 14px; resize: none; outline: none; }
         #chat-input:focus { border-color: #58a6ff; }
-        #chat-mic { background: #30363d; color: #c9d1d9; border: none; border-radius: 6px; 
-            padding: 0 15px; font-size: 16px; cursor: pointer; transition: background 0.2s, color 0.2s; }
-        #chat-mic:hover { background: #484f58; }
-        #chat-mic.recording { background: #da3633; color: #fff; animation: pulse-mic 1.5s infinite; }
         #chat-send { background: #238636; color: #fff; border: none; border-radius: 6px; 
             padding: 0 20px; font-size: 18px; cursor: pointer; }
         #chat-send:hover { background: #2ea043; }
@@ -126,7 +121,6 @@ class ChatPlugin(BasePlugin):
             font-size: 12px; color: #8b949e; }
         .chat-streaming .content::after { content: '▍'; animation: blink 1s infinite; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-        @keyframes pulse-mic { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } 
             to { opacity: 1; transform: translateY(0); } }
         """
@@ -143,9 +137,7 @@ class ChatPlugin(BasePlugin):
             this.sendBtn = document.getElementById('chat-send');
             this.ttsToggle = document.getElementById('chat-tts-toggle');
             this.voiceSelect = document.getElementById('chat-voice-select');
-            this.micBtn = document.getElementById('chat-mic');
             this.currentAssistant = null;
-            this.isRecording = false;
 
             this.ttsEnabled = localStorage.getItem('chat-tts-enabled') === 'true';
             this.updateTtsButton();
@@ -171,59 +163,6 @@ class ChatPlugin(BasePlugin):
             this.voiceSelect.addEventListener('change', function() {
                 localStorage.setItem('chat-tts-voice', self.voiceSelect.value);
             });
-
-            // Speech Recognition Setup
-            var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (SpeechRecognition) {
-                this.recognition = new SpeechRecognition();
-                this.recognition.continuous = false;
-                this.recognition.interimResults = true;
-                this.recognition.lang = 'de-DE';
-
-                this.micBtn.addEventListener('click', function() {
-                    if (self.isRecording) {
-                        self.recognition.stop();
-                    } else {
-                        if (window.speechSynthesis) {
-                            window.speechSynthesis.cancel();
-                        }
-                        self.recognition.start();
-                    }
-                });
-
-                this.recognition.onstart = function() {
-                    self.isRecording = true;
-                    self.micBtn.classList.add('recording');
-                    self.micBtn.textContent = '🛑';
-                };
-
-                this.recognition.onend = function() {
-                    self.isRecording = false;
-                    self.micBtn.classList.remove('recording');
-                    self.micBtn.textContent = '🎤';
-                };
-
-                this.recognition.onresult = function(event) {
-                    var resultText = '';
-                    for (var i = event.resultIndex; i < event.results.length; ++i) {
-                        resultText += event.results[i][0].transcript;
-                    }
-                    self.inputEl.value = resultText;
-                    if (event.results[0].isFinal) {
-                        self.recognition.stop();
-                        sendMessage();
-                    }
-                };
-
-                this.recognition.onerror = function(e) {
-                    console.error('Speech recognition error:', e.error);
-                    self.isRecording = false;
-                    self.micBtn.classList.remove('recording');
-                    self.micBtn.textContent = '🎤';
-                };
-            } else {
-                this.micBtn.style.display = 'none';
-            }
 
             function sendMessage() {
                 var text = self.inputEl.value.trim();
