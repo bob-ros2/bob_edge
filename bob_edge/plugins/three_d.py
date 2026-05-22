@@ -1,4 +1,4 @@
-# Copyright 2024 Bob ROS 2
+# Copyright 2026 Bob ROS 2
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 """
 Three.js 3D Visualization Plugin.
 
-Mehrere Szenen im Dashboard:
-- 3D Punktwolke (pulsierend, rotierend)
-- Wireframe-Objekte (dynamisch)
-- Token-Stream Visualisierung
+Multiple scenes in the dashboard:
+- 3D Point Cloud (pulsating, rotating)
+- Wireframe objects (dynamic)
+- Token Stream visualization
 """
 
 import math
@@ -31,7 +31,7 @@ from bob_edge.plugins.base import BasePlugin
 
 class ThreeDPlugin(BasePlugin):
     name = "three_d"
-    display_name = "3D Visualisierung"
+    display_name = "3D Visualization"
     topics = [
         "/agent/llm_stream",
         "/agent/llm_reasoning",
@@ -58,7 +58,7 @@ class ThreeDPlugin(BasePlugin):
             pulse_speed = 0.8
             rot_speed = 0.4
 
-            # Kugelverteilung
+            # Sphere distribution
             pts = []
             random.seed(42)
             for _ in range(num):
@@ -127,14 +127,14 @@ class ThreeDPlugin(BasePlugin):
 
     def on_ws_msg(self, msg: dict):
         if msg.get("type") == "set_color":
-            # Zukünftig: Farbe per Frontend-UI ändern
+            # Future: change color via frontend UI
             pass
 
     def html(self):
         return """
         <div class="card full" id="plugin-3d">
             <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-                <h2 style="margin:0;">🌌 3D Visualisierung</h2>
+                <h2 style="margin:0;">🌌 3D Visualization</h2>
                 <div style="display:flex;gap:16px;font-size:12px;">
                     <label style="color:#8b949e;"><input type="checkbox" id="chk-cloud" checked> Cloud</label>
                     <label style="color:#8b949e;"><input type="checkbox" id="chk-wire" checked> Wire</label>
@@ -159,7 +159,7 @@ class ThreeDPlugin(BasePlugin):
             self.container = document.getElementById('three-container');
             if (!self.container) return;
 
-            // Three.js von CDN laden
+            // Load Three.js from CDN
             var script = document.createElement('script');
             script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
             script.onload = function() { self._initScene(); };
@@ -336,7 +336,7 @@ class ThreeDPlugin(BasePlugin):
             var dt = self._clock.getDelta();
             var t = self._clock.getElapsedTime();
 
-            // Camera (Maus + auto-rotation)
+            // Camera (mouse + auto-rotation)
             var autoRotate = !self._isDragging;
             if (autoRotate) {
                 self._targetRot.x += dt * 0.15;
@@ -428,7 +428,7 @@ class ThreeDPlugin(BasePlugin):
                     break;
 
                 case 'token_stream':
-                    // Aktivität erhöhen bei Token-Eingang
+                    // Increase activity on token arrival
                     self._tokenActivity = Math.min(1, self._tokenActivity + 0.3);
                     break;
             }

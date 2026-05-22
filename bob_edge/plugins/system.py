@@ -1,4 +1,4 @@
-# Copyright 2024 Bob ROS 2
+# Copyright 2026 Bob ROS 2
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ class SystemPlugin(BasePlugin):
         return """
         <div class="card full" id="plugin-system-graph">
             <h2>Node-Graph <span style="color:#484f58;font-size:11px;font-weight:400;">
-                (live, alle 8s)</span></h2>
+                (live, every 8s)</span></h2>
             <div class="mermaid" id="mermaid-graph"></div>
         </div>
         <div class="card full" id="plugin-system-log">

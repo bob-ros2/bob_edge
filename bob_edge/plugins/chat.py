@@ -1,4 +1,4 @@
-# Copyright 2024 Bob ROS 2
+# Copyright 2026 Bob ROS 2
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 
 # flake8: noqa: E501
 """
-Real-time Markdown Chat Plugin mit direktem API-Workaround.
+Real-time Markdown Chat Plugin with direct API fallback.
 
-Sendet parallel via ROS + direkter API. Nimmt was zuerst kommt.
+Sends in parallel via ROS + direct API. Takes whatever returns first.
 """
 import json
 import threading
@@ -63,13 +63,13 @@ class ChatPlugin(BasePlugin):
         return """
         <div class="card full" id="plugin-chat">
             <h2>💬 Chat 
-                <button id="chat-tts-toggle" title="Sprachausgabe (vorlesen)">🔇</button>
-                <select id="chat-voice-select" title="Stimme auswählen"></select>
+                <button id="chat-tts-toggle" title="Speech Output (read aloud)">🔇</button>
+                <select id="chat-voice-select" title="Select Voice"></select>
             </h2>
             <div id="chat-messages"></div>
             <div id="chat-input-row">
                 <textarea id="chat-input" rows="2" 
-                    placeholder="Nachricht... (Enter senden, Shift+Enter)"></textarea>
+                    placeholder="Message... (Enter to send, Shift+Enter)"></textarea>
                 <button id="chat-send">➤</button>
             </div>
         </div>
@@ -187,7 +187,7 @@ class ChatPlugin(BasePlugin):
         updateTtsButton: function() {
             if (!this.ttsToggle) return;
             this.ttsToggle.textContent = this.ttsEnabled ? '🔊' : '🔇';
-            this.ttsToggle.title = this.ttsEnabled ? 'Sprachausgabe aktiv (klicken zum Stummschalten)' : 'Sprachausgabe inaktiv (klicken zum Aktivieren)';
+            this.ttsToggle.title = this.ttsEnabled ? 'Speech output active (click to mute)' : 'Speech output inactive (click to unmute)';
         },
 
         populateVoiceList: function() {
@@ -268,7 +268,7 @@ class ChatPlugin(BasePlugin):
         addUserMessage: function(text) {
             var div = document.createElement('div');
             div.className = 'chat-msg user';
-            div.innerHTML = '<div class="role user-role">Du</div><div class="content">' +
+            div.innerHTML = '<div class="role user-role">You</div><div class="content">' +
                 '<p>' + this.escapeHtml(text) + '</p></div>';
             this.msgsEl.appendChild(div);
             this.msgsEl.scrollTop = this.msgsEl.scrollHeight;
