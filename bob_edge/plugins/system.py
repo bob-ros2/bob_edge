@@ -39,8 +39,6 @@ class SystemPlugin(BasePlugin):
         self._llm_model = '\u2014'
 
     def on_ros_msg(self, topic: str, data: str, ts: float):
-        self.send_ws('topic_msg', {'topic': topic, 'data': data[:300], 'ts': ts})
-
         # Busy on stream activity
         if topic in ('/agent/agent_brain/internal/agent_stream', '/agent/llm_stream'):
             if data.strip():
