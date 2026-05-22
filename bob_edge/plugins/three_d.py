@@ -22,10 +22,6 @@ Multiple scenes in the dashboard:
 - Token Stream visualization
 """
 
-import math
-import random
-import threading
-import time
 from bob_edge.plugins.base import BasePlugin
 
 
@@ -41,81 +37,6 @@ class ThreeDPlugin(BasePlugin):
 
     def __init__(self):
         super().__init__()
-        self._running = True
-        self._token_buf = ""
-        self._t0 = time.time()
-        threading.Thread(target=self._cloud_loop, daemon=True).start()
-        threading.Thread(target=self._wire_loop, daemon=True).start()
-
-    def _cloud_loop(self):
-        """Generate point cloud data at 20fps."""
-        t0 = self._t0
-        while self._running:
-            t = time.time() - t0
-            num = 500
-            spread = 1.5
-            pulse_amp = 0.4
-            pulse_speed = 0.8
-            rot_speed = 0.4
-
-            # Sphere distribution
-            pts = []
-            random.seed(42)
-            for _ in range(num):
-                theta = random.uniform(0, 2 * math.pi)
-                phi = math.acos(2 * random.uniform(0, 1) - 1)
-                r = spread * (0.3 + 0.7 * random.uniform(0, 1))
-                x = r * math.sin(phi) * math.cos(theta)
-                y = r * math.sin(phi) * math.sin(theta)
-                z = r * math.cos(phi)
-
-                pulse = 1.0 + pulse_amp * math.sin(2 * math.pi * pulse_speed * t)
-                angle = rot_speed * t
-                cos_a, sin_a = math.cos(angle), math.sin(angle)
-                xr = x * cos_a - z * sin_a
-                zr = x * sin_a + z * cos_a
-
-                intensity = 0.3 + 0.7 * (zr + spread) / (2 * spread)
-                pts.append({
-                    "x": xr * pulse, "y": y * pulse * 0.8, "z": zr * pulse,
-                    "r": 0.1 + 0.9 * intensity,
-                    "g": 0.3 + 0.7 * intensity,
-                    "b": 1.0 * intensity,
-                })
-
-            self.send_ws("pointcloud", {
-                "points": pts,
-                "ts": t,
-            })
-            time.sleep(1 / 20)
-
-    def _wire_loop(self):
-        """Generate wireframe object data at 2fps."""
-        t0 = self._t0
-        while self._running:
-            t = time.time() - t0
-            # Torus-Knoten-artige Wire-Struktur
-            verts = []
-            edges = []
-            n_verts = 180
-            for i in range(n_verts):
-                u = 2 * math.pi * i / n_verts
-                # 3D Lissajous/Torus-Knoten
-                R1, R2 = 1.2, 0.8
-                p, q = 3, 2
-                r = R1 + R2 * math.cos(q * u)
-                x = r * math.cos(p * u + t * 0.5)
-                y = R2 * math.sin(q * u)
-                z = r * math.sin(p * u + t * 0.5)
-                verts.append({"x": x, "y": y, "z": z})
-                edges.append([i, (i + 1) % n_verts])
-
-            self.send_ws("wireframe", {
-                "vertices": verts,
-                "edges": edges,
-                "ts": t,
-            })
-            time.sleep(1 / 2)
 
     def on_ros_msg(self, topic: str, data: str, ts: float):
         if topic == "/agent/llm_stream":
@@ -212,7 +133,23 @@ class ThreeDPlugin(BasePlugin):
             self.cloudGeo.setAttribute('color', new THREE.BufferAttribute(self.cloudCol, 3));
             self.cloudPoints = new THREE.Points(self.cloudGeo, self.cloudMat);
             self.scene.add(self.cloudPoints);
-            self.cloudCount = 0;
+
+            // Generate initial cloud points on client side
+            var num = 500;
+            var spread = 1.5;
+            for (var i = 0; i < num; i++) {
+                var theta = Math.random() * 2 * Math.PI;
+                var phi = Math.acos(2 * Math.random() - 1);
+                var r = spread * (0.3 + 0.7 * Math.random());
+                var x = r * Math.sin(phi) * Math.cos(theta);
+                var y = r * Math.sin(phi) * Math.sin(theta);
+                var z = r * Math.cos(phi);
+                self.cloudPos[i * 3] = x;
+                self.cloudPos[i * 3 + 1] = y;
+                self.cloudPos[i * 3 + 2] = z;
+            }
+            self.baseCloudPos = new Float32Array(self.cloudPos);
+            self.cloudGeo.attributes.position.needsUpdate = true;
 
             // Wireframe (Scene 2)
             self.wireGeo = new THREE.BufferGeometry();
@@ -342,12 +279,69 @@ class ThreeDPlugin(BasePlugin):
                 self._targetRot.x += dt * 0.15;
             }
             var radius = 6;
-            self.camera.position.x = radius * Math.sin(self._targetRot.x) * \
-                Math.cos(self._targetRot.y * 0.3);
+            self.camera.position.x = radius * Math.sin(self._targetRot.x) * Math.cos(self._targetRot.y * 0.3);
             self.camera.position.y = 2 + radius * Math.sin(self._targetRot.y * 0.3);
-            self.camera.position.z = radius * Math.cos(self._targetRot.x) * \
-                Math.cos(self._targetRot.y * 0.3);
+            self.camera.position.z = radius * Math.cos(self._targetRot.x) * Math.cos(self._targetRot.y * 0.3);
             self.camera.lookAt(0, 0, 0);
+
+            // Client-side Point Cloud pulsing/rotating animation
+            if (self.cloudPoints && self.cloudPoints.visible && self.baseCloudPos) {
+                var num = 500;
+                var spread = 1.5;
+                var pulseAmp = 0.4;
+                var pulseSpeed = 0.8;
+                var rotSpeed = 0.4;
+                var pulse = 1.0 + pulseAmp * Math.sin(2 * Math.PI * pulseSpeed * t);
+                var angle = rotSpeed * t;
+                var cos_a = Math.cos(angle);
+                var sin_a = Math.sin(angle);
+                
+                for (var i = 0; i < num; i++) {
+                    var i3 = i * 3;
+                    var bx = self.baseCloudPos[i3];
+                    var by = self.baseCloudPos[i3 + 1];
+                    var bz = self.baseCloudPos[i3 + 2];
+
+                    // Rotate
+                    var xr = bx * cos_a - bz * sin_a;
+                    var zr = bx * sin_a + bz * cos_a;
+
+                    self.cloudPos[i3] = xr * pulse;
+                    self.cloudPos[i3 + 1] = by * pulse * 0.8;
+                    self.cloudPos[i3 + 2] = zr * pulse;
+
+                    var intensity = 0.3 + 0.7 * (zr + spread) / (2 * spread);
+                    self.cloudCol[i3] = 0.1 + 0.9 * intensity;
+                    self.cloudCol[i3 + 1] = 0.3 + 0.7 * intensity;
+                    self.cloudCol[i3 + 2] = 1.0 * intensity;
+                }
+                self.cloudGeo.attributes.position.needsUpdate = true;
+                self.cloudGeo.attributes.color.needsUpdate = true;
+            }
+
+            // Client-side Wireframe torus knot update
+            if (self.wireLine && self.wireLine.visible) {
+                var verts = [];
+                var n_verts = 180;
+                var R1 = 1.2, R2 = 0.8;
+                var p = 3, q = 2;
+                for (var i = 0; i < n_verts; i++) {
+                    var u = 2 * Math.PI * i / n_verts;
+                    var r = R1 + R2 * Math.cos(q * u);
+                    var x = r * Math.cos(p * u + t * 0.5);
+                    var y = R2 * Math.sin(q * u);
+                    var z = r * Math.sin(p * u + t * 0.5);
+                    verts.push(new THREE.Vector3(x, y, z));
+                }
+                var positions = [];
+                for (var i = 0; i < n_verts; i++) {
+                    var v1 = verts[i];
+                    var v2 = verts[(i + 1) % n_verts];
+                    positions.push(v1.x, v1.y, v1.z);
+                    positions.push(v2.x, v2.y, v2.z);
+                }
+                self.wireGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            }
 
             // Token particles update
             var decay = 0.98;
@@ -380,53 +374,6 @@ class ThreeDPlugin(BasePlugin):
             if (!self.renderer) return;
 
             switch(msg.type) {
-                case 'pointcloud':
-                    var pts = msg.data.points;
-                    if (!pts || !pts.length) return;
-                    var count = Math.min(pts.length, 500);
-                    for (var i = 0; i < count; i++) {
-                        var p = pts[i];
-                        var i3 = i * 3;
-                        self.cloudPos[i3] = p.x;
-                        self.cloudPos[i3+1] = p.y;
-                        self.cloudPos[i3+2] = p.z;
-                        self.cloudCol[i3] = p.r;
-                        self.cloudCol[i3+1] = p.g;
-                        self.cloudCol[i3+2] = p.b;
-                    }
-                    // Pad rest
-                    for (var i = count; i < 500; i++) {
-                        var i3 = i * 3;
-                        self.cloudPos[i3] = 0;
-                        self.cloudPos[i3+1] = 0;
-                        self.cloudPos[i3+2] = 0;
-                        self.cloudCol[i3] = 0;
-                        self.cloudCol[i3+1] = 0;
-                        self.cloudCol[i3+2] = 0;
-                    }
-                    self.cloudGeo.attributes.position.needsUpdate = true;
-                    self.cloudGeo.attributes.color.needsUpdate = true;
-                    self.cloudGeo.setDrawRange(0, count);
-                    self.cloudCount = count;
-                    break;
-
-                case 'wireframe':
-                    var verts = msg.data.vertices;
-                    var edges = msg.data.edges;
-                    if (!verts || !edges) return;
-                    var positions = [];
-                    for (var i = 0; i < edges.length; i++) {
-                        var v1 = verts[edges[i][0]];
-                        var v2 = verts[edges[i][1]];
-                        if (!v1 || !v2) continue;
-                        positions.push(v1.x, v1.y, v1.z);
-                        positions.push(v2.x, v2.y, v2.z);
-                    }
-                    self.wireGeo.setAttribute('position',
-                        new THREE.Float32BufferAttribute(positions, 3));
-                    self.wireGeo.setIndex(null);
-                    break;
-
                 case 'token_stream':
                     // Increase activity on token arrival
                     self._tokenActivity = Math.min(1, self._tokenActivity + 0.3);
