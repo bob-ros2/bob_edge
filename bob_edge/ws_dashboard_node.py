@@ -66,6 +66,13 @@ def _safe_id(name):
     sid = re.sub(r'[^a-zA-Z0-9_]', '_', name).strip('_')
     return sid if sid else f"n_{abs(hash(name)) % 10000}"
 
+def _safe_label(label):
+    if not label:
+        return "topic"
+    # Keep only alphanumeric, spaces, dashes, dots, underscores
+    label = re.sub(r'[^a-zA-Z0-9_\-\s\.]', '', label).strip()
+    return label if label else "topic"
+
 def _node_class(name):
     nl = name.lower()
     if 'dashboard' in nl or 'bridge' in nl or 'ws_' in nl:
@@ -128,10 +135,11 @@ def build_mermaid_graph():
         node_ids = {n: _safe_id(n) for n in nodes}
         relevant = [n for n in nodes if '/' in n]
         for n in relevant:
-            lines.append(f'    {node_ids[n]}["{n.split("/")[-1]}"]:::{_node_class(n)}')
+            lbl = _safe_label(n.split("/")[-1])
+            lines.append(f'    {node_ids[n]}["{lbl}"]:::{_node_class(n)}')
         for topic in sorted(all_topics):
             ts = _safe_id(topic)
-            tl = topic.split('/')[-1]
+            tl = _safe_label(topic.split('/')[-1])
             pub_n = [n for n in relevant if topic in node_pubs.get(n, set())]
             sub_n = [n for n in relevant if topic in node_subs.get(n, set())]
             if pub_n and sub_n:

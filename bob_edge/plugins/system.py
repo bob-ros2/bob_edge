@@ -150,9 +150,13 @@ class SystemPlugin(BasePlugin):
         renderMermaid: function(diagram) {
             var el = this.mermaidEl;
             if (!el || !diagram) return;
-            el.removeAttribute('data-processed');
-            el.textContent = diagram;
-            mermaid.run({ nodes: [el] });
+            try {
+                el.removeAttribute('data-processed');
+                el.textContent = diagram;
+                mermaid.run({ nodes: [el] });
+            } catch(e) {
+                console.error("Mermaid rendering failed:", e, diagram);
+            }
         },
 
         setBusy: function(busy) {
