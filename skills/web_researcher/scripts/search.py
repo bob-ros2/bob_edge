@@ -34,7 +34,15 @@ def search_web(query: str, num_results: int = 3) -> str:
     searxng_url = os.environ.get(
         'MASTER_SEARXNG_URL',
         'http://api-gateway:8080/search'
-    )
+    ).strip()
+
+    # Automatically prepend protocol if missing
+    if not (searxng_url.startswith('http://') or searxng_url.startswith('https://')):
+        searxng_url = 'http://' + searxng_url
+
+    # Ensure URL ends with /search
+    if not (searxng_url.endswith('/search') or searxng_url.endswith('/search/')):
+        searxng_url = searxng_url.rstrip('/') + '/search'
 
     params = {
         'q': query,
