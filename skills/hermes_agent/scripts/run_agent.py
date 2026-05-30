@@ -16,20 +16,20 @@
 """
 Hermes Sub-Agent Execution Wrapper.
 
-Allows the edge agent to spawn autonomous sub-agents via the 'hermes' command-line interface.
-Loads settings dynamically from the environment or central .env file.
+Spawns isolated, configurable sub-agents and records history and metadata.
 """
 
 import argparse
+from datetime import datetime
+import json
 import os
+import secrets
 import subprocess
 import sys
 
 
 def load_dotenv():
     """Load environment variables from the central workspace .env if not already set."""
-    # Find .env relative to this script: src/bob_edge/skills/hermes_agent/scripts/run_agent.py
-    # Up 4 levels: skills, hermes_agent, scripts, run_agent.py -> bob_edge root
     base_dir = os.path.dirname(os.path.abspath(__file__))
     env_path = os.path.abspath(os.path.join(base_dir, '..', '..', '..', '.env'))
 
@@ -45,71 +45,146 @@ def load_dotenv():
                         os.environ[key] = val
 
 
-def run_hermes(prompt: str, model: str = None, yolo: bool = True) -> int:
+def run_hermes(
+    prompt: str,
+    system_prompt: str = None,
+    model: str = None,
+    yolo: bool = True,
+    identifier: str = 'subagent'
+) -> int:
     """
-    Execute the hermes sub-agent with the given prompt.
+    Execute the hermes sub-agent with logging, isolation, and custom system prompt.
 
     :param prompt: The task instruction.
+    :param system_prompt: Optional custom system prompt (SOUL.md).
     :param model: Optional override for the model name.
     :param yolo: Whether to run with --yolo to bypass dangerous prompts.
+    :param identifier: Suffix for task directory.
     :return: Exit code.
     """
-    # Build command list
-    cmd = ['hermes', '-z', prompt]
+    # 1. Generate unique task ID and directory
+    timestamp_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+    random_hex = secrets.token_hex(3)
+    task_id = f'task_{timestamp_str}_{identifier}_{random_hex}'
+
+    # Ensure profile name is valid (replace non-alphanumeric/dash/underscore with underscore)
+    profile_name = ''.join(c if c.isalnum() or c in ('-', '_') else '_' for c in task_id)
+
+    task_dir = os.path.expanduser(f'~/agent/hermes/{profile_name}')
+    os.makedirs(task_dir, exist_ok=True)
+
+    # 2. Prep environment and load fallback variables
+    env = os.environ.copy()
+    model_name = model or env.get('HERMES_MODEL', 'gemma-4-26B-A4B-it-UD')
+    base_url = env.get('HERMES_BASE_URL', 'http://192.168.1.9:8022/v1')
+
+    print(f'[*] Spawning sub-agent in isolated profile: {profile_name}')
+    print(f'[*] Output directory: {task_dir}')
+    print(f'[*] Model: {model_name}')
+    print(f'[*] Base URL: {base_url}')
+    print('--------------------------------------------------')
+
+    # 3. Create isolated profile by cloning default configuration
+    # This inherits default api_key and base_url settings
+    clone_cmd = ['hermes', 'profile', 'create', profile_name, '--clone']
+    clone_res = subprocess.run(clone_cmd, capture_output=True, text=True, check=False)
+    if clone_res.returncode != 0:
+        print(f'[!] Failed to create profile: {clone_res.stderr}', file=sys.stderr)
+        return clone_res.returncode
+
+    # 4. Apply custom system prompt (SOUL.md) if provided
+    soul_path = os.path.expanduser(f'~/.hermes/profiles/{profile_name}/SOUL.md')
+    if system_prompt:
+        try:
+            with open(soul_path, 'w', encoding='utf-8') as f:
+                f.write(system_prompt)
+            # Copy to output log folder for tracking/reference
+            with open(os.path.join(task_dir, 'SOUL.md'), 'w', encoding='utf-8') as f:
+                f.write(system_prompt)
+            print('[*] Applied custom system prompt (SOUL.md)')
+        except Exception as e:
+            print(f'[!] Failed to write system prompt: {e}', file=sys.stderr)
+
+    # 5. Build and execute the hermes CLI command
+    cmd = ['hermes', '-p', profile_name, '-z', prompt]
     if yolo:
         cmd.append('--yolo')
     if model:
         cmd.extend(['--model', model])
 
-    # Propagate crucial environment variables
-    # (Since config.yaml references ${HERMES_MODEL}, ${HERMES_BASE_URL}, ${HERMES_API_KEY})
-    env = os.environ.copy()
-
-    # Log execution settings
-    model_name = env.get('HERMES_MODEL', 'gemma-4-26B-A4B-it-UD')
-    base_url = env.get('HERMES_BASE_URL', 'http://192.168.1.9:8022/v1')
-    print('[*] Starting Hermes Sub-Agent...')
-    print(f'[*] Model: {model_name}')
-    print(f'[*] Base URL: {base_url}')
-    print(f'[*] Task: {prompt}')
-    print('--------------------------------------------------')
+    exit_code = 1
+    log_file_path = os.path.join(task_dir, 'output.log')
 
     try:
-        # Run process and pipe output live
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            env=env
-        )
+        with open(log_file_path, 'w', encoding='utf-8') as log_f:
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                env=env
+            )
 
-        # Stream output to stdout in real-time
-        for line in process.stdout:
-            sys.stdout.write(line)
-            sys.stdout.flush()
+            # Stream output to stdout and log file in real-time
+            for line in process.stdout:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                log_f.write(line)
 
-        process.wait()
-        return process.returncode
+            process.wait()
+            exit_code = process.returncode
 
     except FileNotFoundError:
         print("[!] Error: 'hermes' command not found on PATH.", file=sys.stderr)
-        print('[!] Verify hermes-agent is installed in the container.', file=sys.stderr)
-        return 127
+        exit_code = 127
     except Exception as e:
         print(f'[!] Exception during hermes execution: {e}', file=sys.stderr)
-        return 1
+        exit_code = 1
+    finally:
+        # 6. Cleanup: Delete the temporary profile
+        delete_cmd = ['hermes', 'profile', 'delete', '-y', profile_name]
+        delete_res = subprocess.run(delete_cmd, capture_output=True, text=True, check=False)
+        if delete_res.returncode != 0:
+            print(
+                f'[!] Warning: Failed to delete profile {profile_name}: '
+                f'{delete_res.stderr.strip()}',
+                file=sys.stderr
+            )
+
+    # 7. Save metadata json report
+    run_info = {
+        'task_id': profile_name,
+        'timestamp': datetime.now().isoformat(),
+        'prompt': prompt,
+        'system_prompt': system_prompt,
+        'model': model_name,
+        'yolo': yolo,
+        'exit_code': exit_code
+    }
+    try:
+        with open(os.path.join(task_dir, 'run_info.json'), 'w', encoding='utf-8') as f:
+            json.dump(run_info, f, indent=2)
+    except Exception as e:
+        print(f'[!] Failed to write metadata: {e}', file=sys.stderr)
+
+    return exit_code
 
 
 def main():
     """CLI entry point for the Hermes agent skill."""
     parser = argparse.ArgumentParser(description='Hermes Agent Skill Wrapper')
     parser.add_argument('prompt', help='Instruction/Task for the Hermes sub-agent')
+    parser.add_argument('--system', help='Custom system prompt (SOUL.md) for the sub-agent')
     parser.add_argument('--model', help='Override default model name (HERMES_MODEL)')
     parser.add_argument(
         '--no-yolo',
         action='store_true',
         help='Disable YOLO mode (will prompt for dangerous actions)'
+    )
+    parser.add_argument(
+        '--id',
+        default='subagent',
+        help='Custom identifier for log folder prefix'
     )
 
     args = parser.parse_args()
@@ -120,8 +195,10 @@ def main():
     # Execute and exit with the return code
     exit_code = run_hermes(
         prompt=args.prompt,
+        system_prompt=args.system,
         model=args.model,
-        yolo=not args.no_yolo
+        yolo=not args.no_yolo,
+        identifier=args.id
     )
     sys.exit(exit_code)
 

@@ -26,9 +26,19 @@ To override the default model:
 execute_skill_script hermes_agent scripts/run_agent.py "Write a unit test for my node" --model "another-model-name"
 ```
 
+To run with a custom system prompt:
+```bash
+execute_skill_script hermes_agent scripts/run_agent.py "Write a simple program" --system "You are a senior COBOL programmer."
+```
+
 To run with YOLO mode disabled (to prompt for confirmation of dangerous commands):
 ```bash
 execute_skill_script hermes_agent scripts/run_agent.py "List files in the current folder" --no-yolo
+```
+
+To specify a custom identifier for the output folder name:
+```bash
+execute_skill_script hermes_agent scripts/run_agent.py "Create a web server" --id web_server_task
 ```
 
 ## Parameters
@@ -37,8 +47,10 @@ The script `scripts/run_agent.py` accepts the following arguments:
 | Argument | Description | Default |
 |---|---|---|
 | `prompt` | The task/instruction to run. | *(Required)* |
+| `--system` | Custom system prompt (SOUL.md) for the sub-agent. | `None` (uses default) |
 | `--model` | Override the default model configured in the environment. | `None` (uses default) |
 | `--no-yolo` | Disable YOLO mode, prompting for confirmation before running dangerous commands. | `False` (YOLO is enabled by default) |
+| `--id` | Custom identifier suffix for the log directory name. | `subagent` |
 
 ### Environment Variables
 This skill uses the following environment variables (which can be configured in `.env`):
@@ -49,6 +61,15 @@ This skill uses the following environment variables (which can be configured in 
 | `HERMES_BASE_URL` | The OpenAI-compatible API base URL. | `http://192.168.1.9:8022/v1` |
 | `HERMES_API_KEY` | The API token/key for the endpoint. | `dummy_token` |
 
+## Logging & Task History
+Each sub-agent execution runs in an isolated temporary profile and writes consolidated results to a persistent task directory:
+`~/agent/hermes/task_<YYYYMMDD_HHMMSS>_<identifier>_<random_hex>/`
+
+Inside this folder, the following files are automatically created:
+* `run_info.json`: A machine-readable JSON file containing the task metadata (task_id, timestamp, prompt, system_prompt, model, yolo status, and subprocess exit_code).
+* `output.log`: The raw output stream (stdout/stderr) of the execution.
+* `SOUL.md`: (Optional) The custom system prompt that was applied to the agent.
+
 ## Requirements
 - `hermes-agent` installed in the container environment.
 - The `hermes` CLI executable must be available on the system PATH.
@@ -56,8 +77,9 @@ This skill uses the following environment variables (which can be configured in 
 
 ## Technical Details
 This skill is a wrapper around the `hermes-agent` CLI.
-It sets up the custom provider configuration dynamically via `~/.hermes/config.yaml` using environment variable placeholders. When the `hermes` command runs, it resolves the placeholders using the variables set in the environment or `.env`.
+It sets up isolated, dynamic profiles using `hermes profile create <task_id> --clone`, configures the custom provider dynamically via `~/.hermes/profiles/<task_id>/config.yaml`, writes the system prompt (SOUL.md) if requested, runs the agent, logs the results, and cleans up the profile with `hermes profile delete -y <task_id>` when done.
 
 ## Best Practices
 - **Isolation**: Each sub-agent runs in the same container environment, so be careful with modifications to files or running persistent background processes.
 - **Yolo Mode**: Always run with YOLO mode enabled (default) when invoking the sub-agent programmatically to avoid hanging on interactive prompts.
+
