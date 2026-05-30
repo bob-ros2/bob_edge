@@ -82,6 +82,7 @@ The script `scripts/delegate_task.py` accepts the following arguments:
 | `--system` | Custom system prompt additions to append/prepend to orchestrator SOUL.md. | `None` |
 | `--model` | Override the default model configured in the environment. | `None` (uses default) |
 | `--no-yolo` | Disable YOLO mode, prompting for confirmation before running dangerous commands. | `False` (YOLO is enabled by default) |
+| `--no-detach` | Run in the foreground (blocking mode) instead of detaching to background. | `False` (detaches to background by default) |
 | `--id` | Custom identifier suffix for the log directory name. | `delegate` |
 | `--timeout` | Maximum execution time in seconds. If exceeded, terminates parent orchestrator process and cleans up. | `None` |
 

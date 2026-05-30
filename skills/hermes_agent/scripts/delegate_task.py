@@ -54,7 +54,8 @@ def run_delegate_task(
     model: str = None,
     yolo: bool = True,
     identifier: str = 'delegate',
-    timeout: float = None
+    timeout: float = None,
+    detach: bool = True
 ) -> int:
     """
     Execute the hermes agent orchestrator with custom system prompt to run delegation tasks.
@@ -65,6 +66,7 @@ def run_delegate_task(
     :param yolo: Whether to run with --yolo to bypass dangerous prompts.
     :param identifier: Suffix for task directory.
     :param timeout: Optional execution timeout in seconds.
+    :param detach: Whether to double-fork and run the task in the background.
     :return: Exit code.
     """
     # 1. Generate unique task ID and directory
@@ -80,6 +82,8 @@ def run_delegate_task(
 
     # 2. Prep environment and load fallback variables
     env = os.environ.copy()
+    env['PYTHONUNBUFFERED'] = '1'
+    env['PYTHONIOENCODING'] = 'UTF-8'
     model_name = model or env.get('HERMES_MODEL', 'gemma-4-26B-A4B-it-UD')
     base_url = env.get('HERMES_BASE_URL', 'http://192.168.1.9:8022/v1')
 
@@ -128,99 +132,196 @@ def run_delegate_task(
     except Exception as e:
         print(f'[!] Failed to write system prompt: {e}', file=sys.stderr)
 
-    # 6. Build and execute the hermes CLI command
-    prompt_str = json.dumps(tasks_payload)
-    cmd = ['hermes', '-p', profile_name, '-z', prompt_str]
-    if yolo:
-        cmd.append('--yolo')
-    if model:
-        cmd.extend(['--model', model])
+    # If detach is True, double-fork to run the execution in the background
+    if detach:
+        try:
+            pid = os.fork()
+            if pid > 0:
+                # Parent prints detachment information and exits immediately
+                print(f'[+] Detached delegation to background. PID: {pid}')
+                print(f'[+] Monitor progress: tail -f {os.path.join(task_dir, "output.log")}')
+                print(f'[+] Final report will be written to: {os.path.join(task_dir, "report.md")}')
+                return 0
+        except OSError as e:
+            print(f'[!] fork #1 failed: {e}', file=sys.stderr)
+            return 1
 
+        # Decouple from parent environment
+        # Keep original working directory (do not os.chdir('/')) so subagents run in workspace CWD!
+        os.setsid()
+        os.umask(0)
+
+        # Do second fork to completely release terminal association
+        try:
+            pid = os.fork()
+            if pid > 0:
+                sys.exit(0)
+        except OSError as e:
+            print(f'[!] fork #2 failed: {e}', file=sys.stderr)
+            sys.exit(1)
+
+        # Redirect standard file descriptors to devnull
+        sys.stdout.flush()
+        sys.stderr.flush()
+        si = open(os.devnull, 'r')
+        so = open(os.devnull, 'a+')
+        se = open(os.devnull, 'a+')
+        os.dup2(si.fileno(), sys.stdin.fileno())
+        os.dup2(so.fileno(), sys.stdout.fileno())
+        os.dup2(se.fileno(), sys.stderr.fileno())
+
+    # Now the execution logic starts (runs in the background child process if detach=True, or foreground if detach=False)
     exit_code = 1
     log_file_path = os.path.join(task_dir, 'output.log')
-    start_time = time.time()
-
     try:
-        with open(log_file_path, 'w', encoding='utf-8') as log_f:
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                env=env
-            )
+        # 6. Build and execute the hermes CLI command
+        prompt_str = json.dumps(tasks_payload)
+        cmd = ['hermes', '-p', profile_name, '-z', prompt_str]
+        if yolo:
+            cmd.append('--yolo')
+        if model:
+            cmd.extend(['--model', model])
 
-            # Stream output to stdout and log file in real-time with timeout protection
-            while True:
-                # Check for execution timeout
-                if timeout and (time.time() - start_time) > timeout:
-                    print(
-                        f'\n[!] Timeout of {timeout}s reached. Terminating orchestrator...',
-                        file=sys.stderr
-                    )
-                    process.terminate()
-                    try:
-                        process.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        print(
-                            '[!] Orchestrator failed to terminate gracefully. Killing...',
-                            file=sys.stderr
-                        )
-                        process.kill()
-                    exit_code = 124  # Standard timeout exit code
-                    break
+        start_time = time.time()
+        stdout_chunks = []
 
-                # Wait for data to be available on stdout (1.0 second timeout)
-                rlist, _, _ = select.select([process.stdout], [], [], 1.0)
-                if process.stdout in rlist:
-                    line = process.stdout.readline()
-                    if not line:
-                        # EOF reached
-                        process.wait()
-                        exit_code = process.returncode
+        try:
+            with open(log_file_path, 'w', encoding='utf-8') as log_f:
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=env
+                )
+
+                # Stream output to log file (and stdout/stderr if not detached) in real-time
+                while True:
+                    # Check for execution timeout
+                    if timeout and (time.time() - start_time) > timeout:
+                        err_timeout = f'\n[!] Timeout of {timeout}s reached. Terminating orchestrator...\n'
+                        log_f.write(err_timeout)
+                        log_f.flush()
+                        if not detach:
+                            sys.stderr.write(err_timeout)
+                            sys.stderr.flush()
+                        process.terminate()
+                        try:
+                            process.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            process.kill()
+                        exit_code = 124  # Standard timeout exit code
                         break
-                    sys.stdout.write(line)
-                    sys.stdout.flush()
-                    log_f.write(line)
-                else:
-                    # No data available yet, check if process already exited
+
+                    # Wait for data to be available on stdout or stderr (1.0 second timeout)
+                    rlist, _, _ = select.select([process.stdout, process.stderr], [], [], 1.0)
+                    
+                    if process.stdout in rlist:
+                        line = process.stdout.readline()
+                        if line:
+                            stdout_chunks.append(line)
+                            log_f.write(line)
+                            log_f.flush()
+                            if not detach:
+                                sys.stdout.write(line)
+                                sys.stdout.flush()
+
+                    if process.stderr in rlist:
+                        line = process.stderr.readline()
+                        if line:
+                            log_f.write(f'[stderr] {line}')
+                            log_f.flush()
+                            if not detach:
+                                sys.stderr.write(line)
+                                sys.stderr.flush()
+
+                    # If no data and process exited, break
                     if process.poll() is not None:
+                        # Read any remaining output
+                        for line in process.stdout:
+                            stdout_chunks.append(line)
+                            log_f.write(line)
+                            if not detach:
+                                sys.stdout.write(line)
+                        for line in process.stderr:
+                            log_f.write(f'[stderr] {line}')
+                            if not detach:
+                                sys.stderr.write(line)
                         process.wait()
                         exit_code = process.returncode
                         break
 
-    except FileNotFoundError:
-        print("[!] Error: 'hermes' command not found on PATH.", file=sys.stderr)
-        exit_code = 127
-    except Exception as e:
-        print(f'[!] Exception during hermes execution: {e}', file=sys.stderr)
-        exit_code = 1
-    finally:
-        # 7. Cleanup: Delete the temporary profile
-        delete_cmd = ['hermes', 'profile', 'delete', '-y', profile_name]
-        delete_res = subprocess.run(delete_cmd, capture_output=True, text=True, check=False)
-        if delete_res.returncode != 0:
-            print(
-                f'[!] Warning: Failed to delete profile {profile_name}: '
-                f'{delete_res.stderr.strip()}',
-                file=sys.stderr
+        except FileNotFoundError:
+            err_msg = "[!] Error: 'hermes' command not found on PATH."
+            if not detach:
+                print(err_msg, file=sys.stderr)
+            with open(log_file_path, 'a', encoding='utf-8') as log_f:
+                log_f.write(f'\n{err_msg}\n')
+            exit_code = 127
+        except Exception as e:
+            err_msg = f'[!] Exception during hermes execution: {e}'
+            if not detach:
+                print(err_msg, file=sys.stderr)
+            with open(log_file_path, 'a', encoding='utf-8') as log_f:
+                log_f.write(f'\n{err_msg}\n')
+            exit_code = 1
+        finally:
+            # 7. Cleanup: Delete the temporary profile
+            delete_cmd = ['hermes', 'profile', 'delete', '-y', profile_name]
+            delete_res = subprocess.run(delete_cmd, capture_output=True, text=True, check=False)
+            if delete_res.returncode != 0:
+                err_msg = f'[!] Warning: Failed to delete profile {profile_name}: {delete_res.stderr.strip()}'
+                if not detach:
+                    print(err_msg, file=sys.stderr)
+                with open(log_file_path, 'a', encoding='utf-8') as log_f:
+                    log_f.write(f'\n{err_msg}\n')
+
+        # 8. Save metadata json report
+        run_info = {
+            'task_id': profile_name,
+            'timestamp': datetime.now().isoformat(),
+            'tasks': tasks_payload,
+            'system_prompt': system_prompt,
+            'model': model_name,
+            'yolo': yolo,
+            'exit_code': exit_code
+        }
+        try:
+            with open(os.path.join(task_dir, 'run_info.json'), 'w', encoding='utf-8') as f:
+                json.dump(run_info, f, indent=2)
+        except Exception as e:
+            if not detach:
+                print(f'[!] Failed to write metadata: {e}', file=sys.stderr)
+
+        # 9. Save final report.md
+        if exit_code == 0:
+            report_content = "".join(stdout_chunks)
+        else:
+            report_content = (
+                f"# Execution Failed\n\n"
+                f"Orchestrator exited with non-zero exit code: {exit_code}\n\n"
+                f"Please check `output.log` for more details."
             )
 
-    # 8. Save metadata json report
-    run_info = {
-        'task_id': profile_name,
-        'timestamp': datetime.now().isoformat(),
-        'tasks': tasks_payload,
-        'system_prompt': system_prompt,
-        'model': model_name,
-        'yolo': yolo,
-        'exit_code': exit_code
-    }
-    try:
-        with open(os.path.join(task_dir, 'run_info.json'), 'w', encoding='utf-8') as f:
-            json.dump(run_info, f, indent=2)
-    except Exception as e:
-        print(f'[!] Failed to write metadata: {e}', file=sys.stderr)
+        try:
+            with open(os.path.join(task_dir, 'report.md'), 'w', encoding='utf-8') as f:
+                f.write(report_content)
+        except Exception as e:
+            if not detach:
+                print(f'[!] Failed to write report.md: {e}', file=sys.stderr)
+
+    except Exception as outer_e:
+        import traceback
+        try:
+            with open(log_file_path, 'a', encoding='utf-8') as log_f:
+                log_f.write("\n[!] Grandchild process crashed with unexpected exception:\n")
+                traceback.print_exc(file=log_f)
+        except:
+            pass
+        exit_code = 1
+
+    if detach:
+        sys.exit(exit_code)
 
     return exit_code
 
@@ -255,6 +356,11 @@ def main():
         '--no-yolo',
         action='store_true',
         help='Disable YOLO mode (will prompt for dangerous actions)'
+    )
+    parser.add_argument(
+        '--no-detach',
+        action='store_true',
+        help='Run in the foreground (blocking mode) instead of detaching to background'
     )
     parser.add_argument(
         '--id',
@@ -337,7 +443,8 @@ def main():
         model=args.model,
         yolo=not args.no_yolo,
         identifier=args.id,
-        timeout=args.timeout
+        timeout=args.timeout,
+        detach=not args.no_detach
     )
     sys.exit(exit_code)
 
