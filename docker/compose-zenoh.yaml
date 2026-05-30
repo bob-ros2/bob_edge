@@ -8,6 +8,8 @@
 #   ZENOH_ROUTER_IP=bobn docker compose -f compose-zenoh.yaml up client -d
 # =====================================================================
 
+name: agent-zenoh-bridge
+
 services:
   # ---------------------------------------------------------
   # EDGE MODE: Runs on the remote device (e.g., Raspberry Pi)
