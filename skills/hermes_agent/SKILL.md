@@ -16,7 +16,9 @@ To enable dynamic orchestration of sub-agents to execute tasks autonomously.
 The Hermes Agent skill integrates the `hermes-agent` CLI tool as a workspace skill. It reads configuration from the environment (or the central `.env` file) and runs the sub-agent in scripted, non-interactive one-shot mode (`hermes -z`). The sub-agent has access to the local terminal, filesystem, and workspace.
 
 ## Usage
-Execute a prompt/task using the sub-agent:
+
+### 1. Single Sub-Agent Execution (run_agent.py)
+Execute a prompt/task using a single sub-agent:
 ```bash
 execute_skill_script hermes_agent scripts/run_agent.py "Create a python script that calculates prime numbers up to 100"
 ```
@@ -41,7 +43,20 @@ To specify a custom identifier for the output folder name:
 execute_skill_script hermes_agent scripts/run_agent.py "Create a web server" --id web_server_task
 ```
 
+### 2. Task Delegation & Orchestration (delegate_task.py)
+Delegate a single task using parameters:
+```bash
+execute_skill_script hermes_agent scripts/delegate_task.py --goal "Research ROS 2 Humble releases" --toolsets "web" --context "Use the web_researcher skill"
+```
+
+Delegate multiple tasks in parallel using a JSON string:
+```bash
+execute_skill_script hermes_agent scripts/delegate_task.py '[{"goal": "Search for ROS 2 Humble lifecycle", "toolsets": ["web"], "context": "Use web_researcher"}, {"goal": "Search for ROS 2 Jazzy Features", "toolsets": ["web"], "context": "Use web_researcher"}]'
+```
+
 ## Parameters
+
+### run_agent.py Parameters
 The script `scripts/run_agent.py` accepts the following arguments:
 
 | Argument | Description | Default |
@@ -52,6 +67,23 @@ The script `scripts/run_agent.py` accepts the following arguments:
 | `--no-yolo` | Disable YOLO mode, prompting for confirmation before running dangerous commands. | `False` (YOLO is enabled by default) |
 | `--id` | Custom identifier suffix for the log directory name. | `subagent` |
 | `--timeout` | Maximum execution time in seconds. If exceeded, terminates sub-agent process and cleans up. | `None` |
+
+### delegate_task.py Parameters
+The script `scripts/delegate_task.py` accepts the following arguments:
+
+| Argument | Description | Default |
+|---|---|---|
+| `tasks_json` | JSON string or file path containing the tasks list/dictionary. | `None` (positional) |
+| `--tasks` | Alternative way to pass JSON string or file path containing tasks. | `None` |
+| `--goal` | Goal for a single task (ignored if tasks JSON is provided). | `None` |
+| `--context` | Context for a single task. | `None` |
+| `--toolsets` | Comma-separated toolsets to enable for a single task. | `None` |
+| `--max-iterations` | Maximum number of iterations for the sub-agent. | `None` |
+| `--system` | Custom system prompt additions to append/prepend to orchestrator SOUL.md. | `None` |
+| `--model` | Override the default model configured in the environment. | `None` (uses default) |
+| `--no-yolo` | Disable YOLO mode, prompting for confirmation before running dangerous commands. | `False` (YOLO is enabled by default) |
+| `--id` | Custom identifier suffix for the log directory name. | `delegate` |
+| `--timeout` | Maximum execution time in seconds. If exceeded, terminates parent orchestrator process and cleans up. | `None` |
 
 ### Timeout Control
 There are two layers of timeouts that control execution:
