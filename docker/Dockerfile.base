@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     ffmpeg \
+    ripgrep \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /ros2_ws
@@ -49,9 +50,20 @@ RUN chown rosuser:rosuser /home/rosuser/.bashrc
 RUN echo "#!/bin/bash\nsource /opt/ros/\${ROS_DISTRO}/setup.bash\nsource /ros2_ws/install/setup.bash\nexec \"\$@\"" > /ros_entrypoint.sh \
     && chmod +x /ros_entrypoint.sh
 
-# Switch to the non-root user
+# Set up PATH to include rosuser's local bin
+ENV PATH="/home/rosuser/.local/bin:${PATH}"
+
+# Switch to the non-root user and install hermes-agent
 USER rosuser
 WORKDIR /home/rosuser
+
+# Install hermes-agent (skip setup wizard and browser/playwright download)
+RUN curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash -s -- --skip-setup --skip-browser
+
+# Setup default hermes configuration referencing environment variables
+RUN mkdir -p /home/rosuser/.hermes && \
+    echo 'model:\n  default: "${HERMES_MODEL}"\n  provider: "custom"\n  base_url: "${HERMES_BASE_URL}"\n  api_key: "${HERMES_API_KEY}"' > /home/rosuser/.hermes/config.yaml && \
+    echo 'HERMES_MODEL="gemma-4-26B-A4B-it-UD"\nHERMES_BASE_URL="http://192.168.1.9:8022/v1"\nHERMES_API_KEY="dummy_token"' > /home/rosuser/.hermes/.env
 
 ENTRYPOINT ["/ros_entrypoint.sh"]
 
