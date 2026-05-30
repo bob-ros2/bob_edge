@@ -35,10 +35,9 @@ def crawl_page(url: str, priority: int = 1) -> str:
     if not (url.startswith('http://') or url.startswith('https://')):
         url = 'http://' + url
 
-    # Determine endpoint URL
     crawl_url = os.environ.get('MASTER_CRAWL4AI_URL', '').strip()
     if not crawl_url:
-        base_url = os.environ.get('CRAWL4AI_BASE_URL', '').strip()
+        base_url = os.environ.get('CRAWL4AI_URL', '').strip()
         if base_url:
             crawl_url = base_url.rstrip('/') + '/crawl'
         else:

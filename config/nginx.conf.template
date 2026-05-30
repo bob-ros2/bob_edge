@@ -48,7 +48,8 @@ server {
 
     # Proxy Crawl4AI requests
     location /crawl {
-        proxy_pass ${CRAWL4AI_BASE_URL}/crawl;
+        proxy_set_header Authorization "Bearer ${CRAWL4AI_API_KEY}";
+        proxy_pass ${CRAWL4AI_URL}/crawl;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
