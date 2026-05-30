@@ -67,6 +67,45 @@ def crawl_page(url: str, priority: int = 1) -> str:
         response.raise_for_status()
         data = response.json()
 
+        # If asynchronous task response (Crawl4AI 0.5+), poll the status endpoint
+        if isinstance(data, dict) and 'task_id' in data:
+            task_id = data['task_id']
+            if crawl_url.endswith('/crawl'):
+                task_status_url = crawl_url[:-6] + f'/task/{task_id}'
+            elif crawl_url.endswith('/crawl/'):
+                task_status_url = crawl_url[:-7] + f'/task/{task_id}'
+            else:
+                task_status_url = crawl_url.rstrip('/') + f'/task/{task_id}'
+
+            import time
+            start_time = time.time()
+            max_wait = 45.0
+            poll_interval = 1.0
+
+            while time.time() - start_time < max_wait:
+                status_response = requests.get(task_status_url, headers=headers, timeout=5.0)
+                status_response.raise_for_status()
+                status_data = status_response.json()
+                
+                status = status_data.get('status')
+                if status == 'completed':
+                    data = status_data.get('result', {})
+                    break
+                elif status == 'failed':
+                    return json.dumps({
+                        'status': 'error',
+                        'type': 'crawl_failure',
+                        'message': status_data.get('error', 'Task failed on the service side')
+                    })
+                time.sleep(poll_interval)
+            else:
+                return json.dumps({
+                    'status': 'error',
+                    'type': 'timeout',
+                    'message': f'Crawling task {task_id} timed out after {max_wait} seconds'
+                })
+
+
         # Parse standard Crawl4AI list format
         if isinstance(data, dict) and 'results' in data:
             results = data['results']
