@@ -24,8 +24,10 @@ from datetime import datetime
 import json
 import os
 import secrets
+import select
 import subprocess
 import sys
+import time
 
 
 def load_dotenv():
@@ -50,7 +52,8 @@ def run_hermes(
     system_prompt: str = None,
     model: str = None,
     yolo: bool = True,
-    identifier: str = 'subagent'
+    identifier: str = 'subagent',
+    timeout: float = None
 ) -> int:
     """
     Execute the hermes sub-agent with logging, isolation, and custom system prompt.
@@ -60,6 +63,7 @@ def run_hermes(
     :param model: Optional override for the model name.
     :param yolo: Whether to run with --yolo to bypass dangerous prompts.
     :param identifier: Suffix for task directory.
+    :param timeout: Optional execution timeout in seconds.
     :return: Exit code.
     """
     # 1. Generate unique task ID and directory
@@ -114,6 +118,7 @@ def run_hermes(
 
     exit_code = 1
     log_file_path = os.path.join(task_dir, 'output.log')
+    start_time = time.time()
 
     try:
         with open(log_file_path, 'w', encoding='utf-8') as log_f:
@@ -125,14 +130,44 @@ def run_hermes(
                 env=env
             )
 
-            # Stream output to stdout and log file in real-time
-            for line in process.stdout:
-                sys.stdout.write(line)
-                sys.stdout.flush()
-                log_f.write(line)
+            # Stream output to stdout and log file in real-time with timeout protection
+            while True:
+                # Check for execution timeout
+                if timeout and (time.time() - start_time) > timeout:
+                    print(
+                        f'\n[!] Timeout of {timeout}s reached. Terminating sub-agent...',
+                        file=sys.stderr
+                    )
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        print(
+                            '[!] Sub-agent failed to terminate gracefully. Killing...',
+                            file=sys.stderr
+                        )
+                        process.kill()
+                    exit_code = 124  # Standard timeout exit code
+                    break
 
-            process.wait()
-            exit_code = process.returncode
+                # Wait for data to be available on stdout (1.0 second timeout)
+                rlist, _, _ = select.select([process.stdout], [], [], 1.0)
+                if process.stdout in rlist:
+                    line = process.stdout.readline()
+                    if not line:
+                        # EOF reached
+                        process.wait()
+                        exit_code = process.returncode
+                        break
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+                    log_f.write(line)
+                else:
+                    # No data available yet, check if process already exited
+                    if process.poll() is not None:
+                        process.wait()
+                        exit_code = process.returncode
+                        break
 
     except FileNotFoundError:
         print("[!] Error: 'hermes' command not found on PATH.", file=sys.stderr)
@@ -186,6 +221,12 @@ def main():
         default='subagent',
         help='Custom identifier for log folder prefix'
     )
+    parser.add_argument(
+        '--timeout',
+        type=float,
+        default=None,
+        help='Maximum execution time in seconds'
+    )
 
     args = parser.parse_args()
 
@@ -198,7 +239,8 @@ def main():
         system_prompt=args.system,
         model=args.model,
         yolo=not args.no_yolo,
-        identifier=args.id
+        identifier=args.id,
+        timeout=args.timeout
     )
     sys.exit(exit_code)
 

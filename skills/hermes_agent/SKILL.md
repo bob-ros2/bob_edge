@@ -51,6 +51,20 @@ The script `scripts/run_agent.py` accepts the following arguments:
 | `--model` | Override the default model configured in the environment. | `None` (uses default) |
 | `--no-yolo` | Disable YOLO mode, prompting for confirmation before running dangerous commands. | `False` (YOLO is enabled by default) |
 | `--id` | Custom identifier suffix for the log directory name. | `subagent` |
+| `--timeout` | Maximum execution time in seconds. If exceeded, terminates sub-agent process and cleans up. | `None` |
+
+### Timeout Control
+There are two layers of timeouts that control execution:
+1. **Orchestrator/Parent Node Timeout (Default: 60s)**:
+   The parent LLM node (`agent_brain`) executes tool calls asynchronously and limits execution time via the `tool_timeout` ROS parameter (which defaults to `60.0` seconds).
+   This can be configured in two ways:
+   - Setting the `LLM_TOOL_TIMEOUT` environment variable in the `.env` file (e.g., `LLM_TOOL_TIMEOUT=120.0`).
+   - Declaring `tool_timeout: 120.0` under parameters for `agent_brain` in `launch/base_launch.yaml`.
+2. **Sub-Agent Script Timeout (`--timeout` parameter)**:
+   By default, the script does not enforce an internal timeout. However, to prevent runaway background processes if the orchestrator stops waiting, you can pass a script-level timeout slightly lower than the parent timeout:
+   ```bash
+   execute_skill_script hermes_agent scripts/run_agent.py "Create a web server" --timeout 55
+   ```
 
 ### Environment Variables
 This skill uses the following environment variables (which can be configured in `.env`):
