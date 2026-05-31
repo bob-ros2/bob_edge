@@ -79,11 +79,14 @@ def run_delegate_task(
 
     task_dir = os.path.expanduser(f'~/agent/hermes/{profile_name}')
     os.makedirs(task_dir, exist_ok=True)
+    os.chdir(task_dir)
 
     # 2. Prep environment and load fallback variables
     env = os.environ.copy()
     env['PYTHONUNBUFFERED'] = '1'
     env['PYTHONIOENCODING'] = 'UTF-8'
+    # Force subagent sessions and workspace hints to run inside the task directory
+    env['TERMINAL_CWD'] = task_dir
     model_name = model or env.get('HERMES_MODEL', 'gemma-4-26B-A4B-it-UD')
     base_url = env.get('HERMES_BASE_URL', 'http://192.168.1.9:8022/v1')
 
@@ -147,7 +150,7 @@ def run_delegate_task(
             return 1
 
         # Decouple from parent environment
-        # Keep original working directory (do not os.chdir('/')) so subagents run in workspace CWD!
+        # Run in task_dir (do not os.chdir('/')) so subagents run in the task CWD
         os.setsid()
         os.umask(0)
 
