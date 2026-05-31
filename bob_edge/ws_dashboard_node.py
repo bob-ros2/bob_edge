@@ -427,39 +427,49 @@ async def get_index():
     return HTMLResponse(build_html(plugin_list_global))
 
 
+active_connections = set()
+
+async def broadcast_queue():
+    while True:
+        try:
+            item = await asyncio.to_thread(data_queue.get)
+            for ws in list(active_connections):
+                try:
+                    await ws.send_json(item)
+                except Exception:
+                    active_connections.discard(ws)
+            data_queue.task_done()
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            await asyncio.sleep(0.1)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(broadcast_queue())
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    connected = True
-
-    async def read_queue():
-        while connected:
-            try:
-                item = await asyncio.to_thread(data_queue.get, timeout=1.0)
-                await websocket.send_json(item)
-            except Empty:
-                continue
-            except Exception:
-                break
-
-    async def read_ws():
-        nonlocal connected
-        while connected:
-            try:
-                raw = await asyncio.wait_for(websocket.receive_text(), timeout=0.5)
-                msg = json.loads(raw)
-                for p in plugin_list_global:
-                    if p.name == msg.get("plugin", ""):
-                        p.on_ws_msg(msg); break
-            except asyncio.TimeoutError:
-                continue
-            except Exception:
-                connected = False; break
-
+    active_connections.add(websocket)
     try:
-        await asyncio.gather(read_queue(), read_ws())
+        while True:
+            raw = await websocket.receive_text()
+            msg = json.loads(raw)
+            for p in plugin_list_global:
+                if p.name == msg.get("plugin", ""):
+                    try:
+                        p.on_ws_msg(msg)
+                    except Exception as e:
+                        print(f"[Dashboard] Error in plugin {p.name} on_ws_msg: {e}")
+                    break
     except WebSocketDisconnect:
-        connected = False
+        pass
+    except Exception:
+        pass
+    finally:
+        active_connections.discard(websocket)
 
 
 def ros_spin_thread(plugin_list):

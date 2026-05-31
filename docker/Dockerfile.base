@@ -62,7 +62,7 @@ RUN curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/
 
 # Setup default hermes configuration referencing environment variables
 RUN mkdir -p /home/rosuser/.hermes && \
-    echo 'model:\n  default: "${HERMES_MODEL}"\n  provider: "custom"\n  base_url: "${HERMES_BASE_URL}"\n  api_key: "${HERMES_API_KEY}"' > /home/rosuser/.hermes/config.yaml && \
+    echo 'model:\n  default: "${HERMES_MODEL}"\n  provider: "custom"\n  base_url: "${HERMES_BASE_URL}"\n  api_key: "${HERMES_API_KEY}"\ndelegation:\n  max_concurrent_children: 10' > /home/rosuser/.hermes/config.yaml && \
     echo 'HERMES_MODEL="gemma-4-26B-A4B-it-UD"\nHERMES_BASE_URL="http://192.168.1.9:8022/v1"\nHERMES_API_KEY="dummy_token"' > /home/rosuser/.hermes/.env
 
 ENTRYPOINT ["/ros_entrypoint.sh"]
