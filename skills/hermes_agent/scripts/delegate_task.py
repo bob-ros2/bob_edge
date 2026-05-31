@@ -326,6 +326,36 @@ def run_delegate_task(
     return exit_code
 
 
+def inject_redirection_instruction(payload: dict | list) -> None:
+    """Programmatically append output redirection instructions to each task's context."""
+    instruction = (
+        "\n\nOutput Redirection Rule: When executing search/crawl scripts or verbose "
+        "command-line tools via the terminal tool, redirect their output to files in "
+        "the current task/workspace directory (e.g., 'python3 search.py ... > search_results.json') "
+        "so that the raw execution data is preserved. Do not output raw webpage/search "
+        "JSON directly to the terminal stdout unless requested."
+    )
+
+    def process_task(task: dict) -> None:
+        if not isinstance(task, dict):
+            return
+        current_context = task.get("context", "")
+        if not current_context:
+            task["context"] = instruction.strip()
+        else:
+            task["context"] = current_context.rstrip() + instruction
+
+    if isinstance(payload, list):
+        for t in payload:
+            process_task(t)
+    elif isinstance(payload, dict):
+        if "goal" in payload:
+            process_task(payload)
+        if "tasks" in payload and isinstance(payload["tasks"], list):
+            for t in payload["tasks"]:
+                process_task(t)
+
+
 def main():
     """CLI entry point for the Hermes delegate_task skill."""
     parser = argparse.ArgumentParser(description='Hermes Agent Skill Task Delegation Wrapper')
@@ -435,6 +465,9 @@ def main():
     else:
         print('[!] Error: Invalid tasks payload format. Must be a list of tasks or a task dictionary.', file=sys.stderr)
         sys.exit(1)
+
+    # Inject prompt redirection rules to force saving raw outputs
+    inject_redirection_instruction(tasks_payload)
 
     # Execute and exit with the return code
     exit_code = run_delegate_task(
