@@ -1,0 +1,53 @@
+# -- Eva Voice Subsystem (TTS) --
+name: agent-tts
+
+services:
+  q3tts:
+    container_name: agent-q3tts
+    image: ghcr.io/bob-ros2/bob-q3tts:latest
+    runtime: nvidia
+    env_file:
+      - ../.env
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - PULSE_SERVER=unix:/run/user/1000/pulse/native
+      # TTS node parameters
+      - Q3TTS_MODEL_DIR=/models
+      - Q3TTS_LANGUAGE=german
+      - Q3TTS_PLAY=true
+      - Q3TTS_VOICE_REF_AUDIO=/app/ros2_ws/install/bob_q3tts/share/bob_q3tts/config/eva_24khz_de.wav
+      - Q3TTS_VOICE_REF_TEXT=/app/ros2_ws/install/bob_q3tts/share/bob_q3tts/config/voice_ref_text_de.txt
+      - Q3TTS_DO_SAMPLE=false
+      - Q3TTS_MODEL_DIR=/models
+    volumes:
+      - /volume1/ros/Models/q3tts/:/models
+      - /run/user/1000/pulse:/run/user/1000/pulse
+    devices:
+      - /dev/snd:/dev/snd
+    group_add:
+      - audio
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+    network_mode: host
+    ipc: host
+    command: >
+      ros2 run bob_q3tts tts --ros-args 
+      -r text:=/agent/llm_stream 
+      -r __ns:=/eva/tts
+      -p 'sentence_delimiters:=[". ", "! ", "? ", "\n"]'
+      -p 'substitute:=[
+        "&nbsp;","",
+        "<br>"," ",
+        "[\\U00010000-\\U0010ffff\\u2600-\\u27BF\\ufe00-\\ufe0f]","",
+        "https?://\\S+","",
+        "(?m)^\\s*#+\\s*","",
+        "(?m)^\\s*---+\\s*","",
+        "[*~_|<>\\^`\\]\\[]"," ",
+        "\\s{2,}"," "
+      ]'
