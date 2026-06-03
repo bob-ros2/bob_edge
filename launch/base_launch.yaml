@@ -30,7 +30,7 @@
     - --log-level
     - info
     - -p
-    - "busy_timeout:=300.0"
+    - "busy_timeout:=45.0"
     - -r
     - *logic_user_query
     - -r

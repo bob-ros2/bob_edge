@@ -48,7 +48,14 @@ class ChatPlugin(BasePlugin):
         elif topic == "/agent/llm_tool_calls":
             self.send_ws("tool_call", {"content": data})
         elif topic == "/agent/logic/internal/full_response_text":
-            self.send_ws("response_done", {})
+            full_text = ""
+            try:
+                import json
+                parsed = json.loads(data)
+                full_text = parsed.get("specialist_response", "")
+            except Exception:
+                full_text = data
+            self.send_ws("response_done", {"text": full_text})
 
     def on_ws_msg(self, msg: dict):
         if msg.get("type") == "user_message":
@@ -335,6 +342,9 @@ class ChatPlugin(BasePlugin):
                     var s = this.currentAssistant;
                     if (s) {
                         s.el.classList.remove('chat-streaming');
+                        if (msg.data && msg.data.text) {
+                            s.buffer = msg.data.text;
+                        }
                         try { s.contentEl.innerHTML = marked.parse(s.buffer); }
                         catch(e) { s.contentEl.textContent = s.buffer; }
                         if (this.ttsEnabled) {

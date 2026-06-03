@@ -125,6 +125,7 @@ class OrchestratorNode(Node):
     def internal_stream_callback(self, msg):
         """Pass internal tokens to public stream and mark as streamed."""
         self.was_streamed = True
+        self.busy_since = self.get_clock().now()
         self.pub_llm_stream.publish(msg)
 
     def context_callback(self, msg):
