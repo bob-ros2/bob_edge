@@ -176,8 +176,8 @@ class DashboardBridgeNode(Node):
             for t in p.topics:
                 all_topics.add(t)
         for tn in sorted(all_topics):
-            # Increase queue depth to 1000 for high-speed streaming topics to prevent packet drops
-            depth = 1000 if ("stream" in tn or "reasoning" in tn) else 10
+            # Increase queue depth to 1000 for high-speed streaming/telemetry topics to prevent packet drops
+            depth = 1000 if ("stream" in tn or "reasoning" in tn or "stats" in tn) else 10
             self.create_subscription(String, tn, self._cb(tn), depth)
         self.get_logger().info(
             f"DashboardBridge subscribed to {len(all_topics)} topics across {len(plugin_list)} plugins"
