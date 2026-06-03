@@ -25,12 +25,12 @@ class LlmStatsPlugin(BasePlugin):
 
     name = 'llm_stats'
     display_name = 'LLM Telemetry'
-    topics = ['/llm_stats']
+    topics = ['/agent/llm_stats']
     grid_class = 'card'
 
     def on_ros_msg(self, topic: str, data: str, ts: float):
         """Handle incoming ROS 2 messages for LLM stats."""
-        if topic == '/llm_stats':
+        if topic == '/agent/llm_stats':
             try:
                 stats = json.loads(data)
                 self.send_ws('stats_update', stats)
