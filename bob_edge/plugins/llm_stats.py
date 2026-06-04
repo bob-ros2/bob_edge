@@ -426,7 +426,7 @@ class LlmStatsPlugin(BasePlugin):
                 sOutVal.textContent = cTokens + " / " + (maxTokens || "∞");
             }
             if (sSpeedVal) {
-                sSpeedVal.textContent = status === "completed" ? "Done" : (speed > 0 ? speed.toFixed(1) + " t/s" : "—");
+                sSpeedVal.textContent = speed > 0 ? speed.toFixed(1) + " t/s" : "—";
             }
 
             if (this.ctxGaugeFill) {
