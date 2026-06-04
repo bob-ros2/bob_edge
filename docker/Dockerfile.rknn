@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and install RKNPU2 runtime library (librknnrt.so) for RK3588 matching driver v0.9.3
-RUN curl -L -o /usr/lib/librknnrt.so https://github.com/airockchip/rknpu2/raw/v1.6.0/runtime/RK3588/Linux/librknn_api/aarch64/librknnrt.so
+RUN curl -L -o /usr/lib/librknnrt.so https://github.com/airockchip/rknn-toolkit2/raw/v1.6.0/rknpu2/runtime/Linux/librknn_api/aarch64/librknnrt.so
 
 # Download and install RKNN Toolkit Lite 2 python wheel directly using the corrected folder path (with underscores)
 RUN curl -L -o /tmp/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl https://github.com/airockchip/rknn-toolkit2/raw/v1.6.0/rknn_toolkit_lite2/packages/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl && \
