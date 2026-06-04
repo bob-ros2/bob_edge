@@ -10,7 +10,7 @@ services:
       - agent-net
     volumes:
       - /volume1/ros/agent/data/redis:/data
-    command: redis-server --save 60 1 --loglevel warning
+    command: redis-server --save "" --loglevel warning
     restart: always
 
   # -- LONG-TERM JSON & CHAT --
