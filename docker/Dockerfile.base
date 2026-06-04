@@ -1,9 +1,6 @@
 ARG ROS_DISTRO=humble
 FROM ros:${ROS_DISTRO}-ros-base
 
-# -- Build the Workspace --
-ARG CACHE_BUST=1
-
 RUN apt-get update && apt-get install -y \
     python3-pip \
     python3-pytest \
@@ -14,7 +11,29 @@ RUN apt-get update && apt-get install -y \
     ripgrep \
     && rm -rf /var/lib/apt/lists/*
 
+# Create rosuser (UID 1000 to match typical Synology default user)
+RUN useradd -m -u 1000 -s /bin/bash rosuser
+
+# Set up PATH to include rosuser's local bin
+ENV PATH="/home/rosuser/.local/bin:${PATH}"
+
+# Switch to the non-root user and install hermes-agent
+USER rosuser
+WORKDIR /home/rosuser
+
+# Install hermes-agent (skip setup wizard and browser/playwright download)
+RUN curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash -s -- --skip-setup --skip-browser
+
+# Setup default hermes configuration referencing environment variables
+RUN mkdir -p /home/rosuser/.hermes && \
+    echo 'model:\n  default: "${HERMES_MODEL}"\n  provider: "custom"\n  base_url: "${HERMES_BASE_URL}"\n  api_key: "${HERMES_API_KEY}"\ndelegation:\n  max_concurrent_children: 10' > /home/rosuser/.hermes/config.yaml && \
+    echo 'HERMES_MODEL="gemma-4-26B-A4B-it-UD"\nHERMES_BASE_URL="http://192.168.1.9:8022/v1"\nHERMES_API_KEY="dummy_token"' > /home/rosuser/.hermes/.env
+
+# -- Build the Workspace --
+USER root
 WORKDIR /ros2_ws
+
+ARG CACHE_BUST=1
 
 RUN echo "Cache bust: $CACHE_BUST" && \
     git clone https://github.com/bob-ros2/bob_llm /ros2_ws/src/bob_llm && \
@@ -35,9 +54,6 @@ RUN rm -rf /ros2_ws/build /ros2_ws/install /ros2_ws/log && \
     colcon build --symlink-install --packages-select bob_llm bob_launch bob_edge \
     --event-handlers console_direct+
 
-# Create rosuser (UID 1000 to match typical Synology default user)
-RUN useradd -m -u 1000 -s /bin/bash rosuser
-
 # Secure the workspace - root owns everything, rosuser can only read/execute
 RUN chown -R root:root /ros2_ws
 
@@ -50,20 +66,8 @@ RUN chown rosuser:rosuser /home/rosuser/.bashrc
 RUN echo "#!/bin/bash\nsource /opt/ros/\${ROS_DISTRO}/setup.bash\nsource /ros2_ws/install/setup.bash\nexec \"\$@\"" > /ros_entrypoint.sh \
     && chmod +x /ros_entrypoint.sh
 
-# Set up PATH to include rosuser's local bin
-ENV PATH="/home/rosuser/.local/bin:${PATH}"
-
-# Switch to the non-root user and install hermes-agent
 USER rosuser
 WORKDIR /home/rosuser
-
-# Install hermes-agent (skip setup wizard and browser/playwright download)
-RUN curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash -s -- --skip-setup --skip-browser
-
-# Setup default hermes configuration referencing environment variables
-RUN mkdir -p /home/rosuser/.hermes && \
-    echo 'model:\n  default: "${HERMES_MODEL}"\n  provider: "custom"\n  base_url: "${HERMES_BASE_URL}"\n  api_key: "${HERMES_API_KEY}"\ndelegation:\n  max_concurrent_children: 10' > /home/rosuser/.hermes/config.yaml && \
-    echo 'HERMES_MODEL="gemma-4-26B-A4B-it-UD"\nHERMES_BASE_URL="http://192.168.1.9:8022/v1"\nHERMES_API_KEY="dummy_token"' > /home/rosuser/.hermes/.env
 
 ENTRYPOINT ["/ros_entrypoint.sh"]
 
