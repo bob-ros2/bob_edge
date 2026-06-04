@@ -278,14 +278,30 @@ class YOLOv8NPU(Node):
         img_resized = cv2.resize(frame, (640, 640))
         img_rgb = cv2.cvtColor(img_resized, cv2.COLOR_BGR2RGB)
         
-        # RKNN inference expects channel-last format (640, 640, 3) in uint8
-        t0 = time.time()
-        outputs = self.rknn.inference(inputs=[img_rgb])
-        self.latency = (time.time() - t0) * 1000.0  # ms
+        # Add batch dimension to make it 4D: (1, 640, 640, 3)
+        img_input = np.expand_dims(img_rgb, axis=0)
         
-        # Post-process
-        detections = self.post_process_yolov8(outputs[0], w, h)
-        return detections
+        t0 = time.time()
+        try:
+            outputs = self.rknn.inference(inputs=[img_input])
+            self.latency = (time.time() - t0) * 1000.0  # ms
+            
+            if outputs is None or len(outputs) == 0:
+                self.get_logger().error("RKNN inference returned None or empty output")
+                return []
+            
+            # Log output shapes once for diagnostic purposes
+            if not hasattr(self, '_logged_output_shapes'):
+                self._logged_output_shapes = True
+                shapes = [o.shape for o in outputs]
+                self.get_logger().info(f"RKNN model inference outputs shapes: {shapes}")
+                
+            # Post-process
+            detections = self.post_process_yolov8(outputs[0], w, h)
+            return detections
+        except Exception as e:
+            self.get_logger().error(f"RKNN inference failed: {e}")
+            return []
 
     def run_simulated_inference(self, frame):
         # Fake tracking latency
