@@ -24,14 +24,14 @@ services:
       - AGENT_ID=${AGENT_ID:-main_agent}
     devices:
       - /dev/rknpu:/dev/rknpu      # Expose NPU
-      - /dev/video0:/dev/video0    # Expose USB Camera
-    privileged: true               # Needed for clean access to USB camera and NPU hardware
+    privileged: true               # Needed for direct NPU and USB hardware access
     restart: on-failure
     volumes:
       - ../:/ros2_ws/src/bob_edge:ro
       - /volume1/ros/agent:/home/rosuser/agent
       - /volume1/ros/agent/tmp:/tmp
-    command: ros2 run bob_edge yolov8_npu
+      - /dev:/dev                  # Mount entire /dev to support USB camera hot-plugging
+    command: ros2 run bob_edge yolov8_npu --ros-args -p camera_index:=${CAMERA_INDEX:-0}
 
 networks:
   agent-net:
