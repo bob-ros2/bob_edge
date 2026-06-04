@@ -96,7 +96,8 @@ class YOLOv8NPU(Node):
         
         # ROS 2 Parameters
         self.declare_parameter('model_path', '/home/rosuser/agent/models/yolov8n.rknn')
-        self.declare_parameter('camera_index', 0)
+        default_cam_index = int(os.environ.get('CAMERA_INDEX', 0))
+        self.declare_parameter('camera_index', default_cam_index)
         self.declare_parameter('conf_threshold', 0.4)
         self.declare_parameter('nms_threshold', 0.45)
         self.declare_parameter('http_port', 8080)
