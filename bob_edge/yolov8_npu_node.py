@@ -116,6 +116,7 @@ class YOLOv8NPU(Node):
         self.publish_fps = self.get_parameter('publish_fps').get_parameter_value().double_value
         self.last_pub_time = 0.0
         self.structure_timestamp = 1717548900.0  # June 5, 2026
+        self.last_detected_classes = []
 
         # Redis Connection
         self.redis_client = None
@@ -537,13 +538,19 @@ class YOLOv8NPU(Node):
                 except Exception as e:
                     self.get_logger().error(f"Failed to write vision state to Redis: {e}")
 
-            # Throttled ROS 2 publish for Dashboard
+            # Determine if detected classes changed
+            current_classes = sorted(list(set(d['class_name'] for d in detections)))
+            classes_changed = (current_classes != self.last_detected_classes)
+
+            # Throttled ROS 2 publish for Dashboard: only when classes change or 5s heartbeat, respecting rate limit
             pub_interval = 1.0 / self.publish_fps if self.publish_fps > 0 else 0.0
             if now_time - self.last_pub_time >= pub_interval:
-                det_msg = String()
-                det_msg.data = json.dumps({"detections": detections})
-                self.detections_pub.publish(det_msg)
-                self.last_pub_time = now_time
+                if classes_changed or (now_time - self.last_pub_time >= 5.0):
+                    det_msg = String()
+                    det_msg.data = json.dumps({"detections": detections})
+                    self.detections_pub.publish(det_msg)
+                    self.last_pub_time = now_time
+                    self.last_detected_classes = current_classes
 
             # Calculate FPS
             frame_count += 1
