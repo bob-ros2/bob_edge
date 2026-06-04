@@ -59,11 +59,26 @@ class SystemPlugin(BasePlugin):
             except Exception:
                 pass
 
+    def on_ws_msg(self, msg: dict):
+        if msg.get('type') == 'refresh_graph':
+            import threading
+            def gen():
+                try:
+                    from bob_edge.ws_dashboard_node import build_mermaid_graph
+                    d = build_mermaid_graph()
+                    if d:
+                        self.send_ws('mermaid_diagram', d)
+                except Exception as e:
+                    print(f"Error in manual graph generation: {e}")
+            threading.Thread(target=gen, daemon=True).start()
+
     def html(self):
         return """
         <div class="card full" id="plugin-system-graph">
-            <h2>Node-Graph <span style="color:#484f58;font-size:11px;font-weight:400;">
-                (live, every 8s)</span></h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="margin: 0; display: flex; align-items: center; gap: 8px;">Node-Graph <span id="graph-subtitle" style="color:#484f58;font-size:11px;font-weight:400;">(Lade Modus...)</span></h2>
+                <button id="btn-refresh-graph" class="refresh-btn" onclick="sendToPlugin('system', 'refresh_graph', {})">🔄 Aktualisieren</button>
+            </div>
             <div class="mermaid" id="mermaid-graph"></div>
         </div>
         <div class="card full" id="plugin-system-log">
@@ -92,6 +107,26 @@ class SystemPlugin(BasePlugin):
         .log-entry .topic { color: #58a6ff; }
         .log-entry .data { color: #c9d1d9; }
         #mermaid-graph { background: #0d1117; border-radius: 6px; min-height: 180px; }
+        .refresh-btn {
+            background: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 5px 12px;
+            font-size: 12px;
+            font-family: inherit;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .refresh-btn:hover {
+            background: #30363d;
+            border-color: #8b949e;
+            color: #f0f6fc;
+        }
+        .refresh-btn:active {
+            background: #282e36;
+        }
         """
 
     def js_init(self):
@@ -193,11 +228,17 @@ class SystemPlugin(BasePlugin):
                         document.getElementById('node-count').textContent = msg.data.nodes;
                     }
                     if (msg.data.topics !== undefined) {
-                            document.getElementById('topic-count').textContent = msg.data.topics;
-                        }
+                        document.getElementById('topic-count').textContent = msg.data.topics;
+                    }
                     if (msg.data.model) {
-                            document.getElementById('llm-model').textContent = msg.data.model;
+                        document.getElementById('llm-model').textContent = msg.data.model;
+                    }
+                    if (msg.data.graph_mode) {
+                        var subtitleEl = document.getElementById('graph-subtitle');
+                        if (subtitleEl) {
+                            subtitleEl.textContent = msg.data.graph_mode === 'auto' ? '(Auto)' : '(Manuell)';
                         }
+                    }
                     break;
                 case 'busy':
                     this.setBusy(msg.data.busy);

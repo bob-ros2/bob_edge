@@ -55,6 +55,18 @@ Store or search vector data. *(Note: Embedding generation is currently mocked or
 execute_skill_script memory_manager scripts/memory_tool.py --action qdrant_search --collection "code_snippets" --data "how to use ros param set"
 ```
 
+#### Shared State & Senses (Redis State Machine)
+Access live transient states ("Now" state) or short-term histories for specific agent categories (e.g. YOLOv8 vision detections).
+
+**Usage:**
+```bash
+# Get the latest vision detections (person, objects, etc.)
+execute_skill_script memory_manager scripts/memory_tool.py --action get_state --category vision
+
+# Get the short-term history of vision detections (temporal log)
+execute_skill_script memory_manager scripts/memory_tool.py --action get_history --category vision --limit 5
+```
+
 ## Guidelines
 1. **Namespace Isolation**: Always use the scratchpad without `--agent-id` to write to your own workspace. Never overwrite another agent's scratchpad unless explicitly instructed.
 2. **Data Structure**: When storing in CouchDB, ensure `--data` is valid JSON.

@@ -54,6 +54,32 @@ def scratchpad_read(agent_id):
         print(val)
 
 
+def get_state(category):
+    r = get_redis_client()
+    key = f'state:now:{category}'
+    val = r.get(key)
+    if val is None:
+        print(f'No current state found for category "{category}".')
+    else:
+        print(val)
+
+
+def get_history(category, limit=10):
+    r = get_redis_client()
+    key = f'state:history:{category}'
+    vals = r.lrange(key, 0, limit - 1)
+    if not vals:
+        print(f'No history found for category "{category}".')
+    else:
+        parsed_vals = []
+        for v in vals:
+            try:
+                parsed_vals.append(json.loads(v))
+            except Exception:
+                parsed_vals.append(v)
+        print(json.dumps(parsed_vals, indent=2))
+
+
 def get_couchdb_auth_header():
     import base64
     auth_str = f'admin:{os.environ.get("COUCHDB_PASSWORD", "agentsecret")}'
@@ -171,13 +197,16 @@ def main():
     parser.add_argument('--action', required=True, choices=[
         'scratchpad_write', 'scratchpad_read',
         'couchdb_store', 'couchdb_fetch',
-        'qdrant_store', 'qdrant_search'
+        'qdrant_store', 'qdrant_search',
+        'get_state', 'get_history'
     ])
     parser.add_argument('--agent-id', help='Target Agent ID for scratchpad (defaults to self)')
     parser.add_argument('--data', help='Data to store or query')
     parser.add_argument('--db', help='CouchDB database name')
     parser.add_argument('--doc-id', help='CouchDB document ID')
     parser.add_argument('--collection', help='Qdrant collection name')
+    parser.add_argument('--category', help='Category for system state operations (e.g. vision)')
+    parser.add_argument('--limit', type=int, default=10, help='Limit for get_history logs')
 
     args = parser.parse_args()
 
@@ -232,6 +261,18 @@ def main():
             print('Error: --collection and --data are required for qdrant_search', file=sys.stderr)
             sys.exit(1)
         qdrant_search(args.collection, args.data)
+
+    elif args.action == 'get_state':
+        if not args.category:
+            print('Error: --category is required for get_state', file=sys.stderr)
+            sys.exit(1)
+        get_state(args.category)
+
+    elif args.action == 'get_history':
+        if not args.category:
+            print('Error: --category is required for get_history', file=sys.stderr)
+            sys.exit(1)
+        get_history(args.category, args.limit)
 
 
 if __name__ == '__main__':

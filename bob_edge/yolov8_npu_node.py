@@ -107,6 +107,33 @@ class YOLOv8NPU(Node):
         self.nms_threshold = self.get_parameter('nms_threshold').get_parameter_value().double_value
         self.http_port = self.get_parameter('http_port').get_parameter_value().integer_value
 
+        # Consolidating/Memory Parameters
+        self.declare_parameter('max_history_length', 20)
+        self.declare_parameter('publish_fps', 2.0)
+        
+        self.max_history_length = self.get_parameter('max_history_length').get_parameter_value().integer_value
+        self.publish_fps = self.get_parameter('publish_fps').get_parameter_value().double_value
+        self.last_pub_time = 0.0
+        self.structure_timestamp = 1717548900.0  # June 5, 2026
+
+        # Redis Connection
+        self.redis_client = None
+        self.redis_host = os.environ.get('REDIS_HOST', 'agent-redis')
+        self.redis_port = int(os.environ.get('REDIS_PORT', 6379))
+        try:
+            import redis
+            self.redis_client = redis.Redis(
+                host=self.redis_host,
+                port=self.redis_port,
+                db=0,
+                decode_responses=True
+            )
+            self.redis_client.ping()
+            self.get_logger().info(f"Connected to Redis memory at {self.redis_host}:{self.redis_port}")
+        except Exception as e:
+            self.redis_client = None
+            self.get_logger().warn(f"Failed to connect to Redis memory: {e}. YOLO detections will not be stored in shared memory.")
+
         # Publishers
         self.detections_pub = self.create_publisher(String, '/agent/vision/detections', 10)
         self.npu_stats_pub = self.create_publisher(String, '/agent/vision/npu_stats', 10)
@@ -489,10 +516,33 @@ class YOLOv8NPU(Node):
             with self.frame_lock:
                 self.processed_frame = frame
 
-            # Publish detections JSON over ROS 2 Topic
-            det_msg = String()
-            det_msg.data = json.dumps({"detections": detections})
-            self.detections_pub.publish(det_msg)
+            # Publish to Redis Memory (Shared memory state and short-term history)
+            now_time = time.time()
+            if self.redis_client:
+                try:
+                    vision_state = {
+                        "updated_at": now_time,
+                        "structure_timestamp": self.structure_timestamp,
+                        "data": {
+                            "detections": detections,
+                            "fps": self.fps,
+                            "latency_ms": self.latency
+                        }
+                    }
+                    state_json = json.dumps(vision_state)
+                    self.redis_client.set("state:now:vision", state_json)
+                    self.redis_client.lpush("state:history:vision", state_json)
+                    self.redis_client.ltrim("state:history:vision", 0, self.max_history_length - 1)
+                except Exception as e:
+                    self.get_logger().error(f"Failed to write vision state to Redis: {e}")
+
+            # Throttled ROS 2 publish for Dashboard
+            pub_interval = 1.0 / self.publish_fps if self.publish_fps > 0 else 0.0
+            if now_time - self.last_pub_time >= pub_interval:
+                det_msg = String()
+                det_msg.data = json.dumps({"detections": detections})
+                self.detections_pub.publish(det_msg)
+                self.last_pub_time = now_time
 
             # Calculate FPS
             frame_count += 1

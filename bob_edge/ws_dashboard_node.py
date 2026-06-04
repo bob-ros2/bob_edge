@@ -171,6 +171,13 @@ class DashboardBridgeNode(Node):
         self._pubs = {}
         self._llm_model = _get_llm_model()
 
+        # Graph Optimization Parameters
+        self.declare_parameter('graph_mode', 'manual')
+        self.declare_parameter('graph_interval', 60.0)
+        self.graph_mode = self.get_parameter('graph_mode').get_parameter_value().string_value
+        self.graph_interval = self.get_parameter('graph_interval').get_parameter_value().double_value
+        self._last_graph_diagram = None
+
         all_topics = set()
         for p in plugin_list:
             for t in p.topics:
@@ -188,6 +195,34 @@ class DashboardBridgeNode(Node):
         self._scan_count = 0
         self.create_timer(30.0, self._refresh_model)
         self.create_timer(10.0, self._scan)
+
+        # Generate initial graph once on startup in a separate thread
+        threading.Thread(target=self._generate_and_send_graph, daemon=True).start()
+
+        # In auto mode, register timer for interval regeneration
+        if self.graph_mode == 'auto':
+            self.create_timer(self.graph_interval, self._auto_graph_timer_cb)
+
+    def _generate_and_send_graph(self):
+        try:
+            d = build_mermaid_graph()
+            if d:
+                self._last_graph_diagram = d
+                data_queue.put({"plugin": "system", "type": "mermaid_diagram", "data": d})
+        except Exception as e:
+            self.get_logger().error(f"Error building initial Mermaid graph: {e}")
+
+    def _auto_graph_timer_cb(self):
+        try:
+            def check():
+                d = build_mermaid_graph()
+                if d and d != self._last_graph_diagram:
+                    self.get_logger().info("System graph changed. Sending updated Mermaid diagram to dashboard.")
+                    self._last_graph_diagram = d
+                    data_queue.put({"plugin": "system", "type": "mermaid_diagram", "data": d})
+            threading.Thread(target=check, daemon=True).start()
+        except Exception as e:
+            self.get_logger().error(f"Error in auto graph generation: {e}")
 
     def _refresh_model(self):
         self._llm_model = _get_llm_model()
@@ -218,16 +253,10 @@ class DashboardBridgeNode(Node):
                     "nodes": len(self.get_node_names()),
                     "topics": len(unique_topics),
                     "model": self._llm_model,
+                    "graph_mode": self.graph_mode
                 }
             })
             self._scan_count += 1
-            # Run the expensive subprocess-based Mermaid graph building only once every 10 cycles (100s)
-            if self._scan_count % 10 == 1:
-                def gen():
-                    d = build_mermaid_graph()
-                    if d:
-                        data_queue.put({"plugin": "system", "type": "mermaid_diagram", "data": d})
-                threading.Thread(target=gen, daemon=True).start()
         except Exception:
             pass
 
