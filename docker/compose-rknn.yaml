@@ -22,6 +22,7 @@ services:
       - /volume1/ros/secrets/edge_agent.env
     environment:
       - AGENT_ID=${AGENT_ID:-main_agent}
+      - CAMERA_INDEX=${CAMERA_INDEX:-1}
     devices:
       - /dev/rknpu:/dev/rknpu      # Expose NPU
     privileged: true               # Needed for direct NPU and USB hardware access
