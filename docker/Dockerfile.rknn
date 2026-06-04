@@ -22,8 +22,8 @@ RUN curl -L -o /tmp/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl https
     pip3 install --no-cache-dir /tmp/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl && \
     rm /tmp/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl
 
-# Install Flask and Pillow for the simple HTTP MJPEG stream
-RUN pip3 install --no-cache-dir flask pillow
+# Install Flask, Pillow, and force numpy to 1.x to avoid OpenCV and RKNN incompatibilities with numpy 2.x
+RUN pip3 install --no-cache-dir "numpy<2" flask pillow
 
 # Build the workspace for the new yolov8_npu node
 WORKDIR /ros2_ws
