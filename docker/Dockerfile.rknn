@@ -1,0 +1,40 @@
+# Use the existing base image which has ROS 2 and all dependencies built.
+ARG BASE_IMAGE=ghcr.io/bob-ros2/bob-edge:latest
+FROM ${BASE_IMAGE}
+
+USER root
+
+# Install system dependencies for OpenCV, GUI tools, and RKNN Runtime
+RUN apt-get update && apt-get install -y \
+    python3-opencv \
+    libglib2.0-0 \
+    libgl1-mesa-glx \
+    libxslt1-dev \
+    zlib1g-dev \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone specific branch v1.6.0 for NPU driver v0.9.3 compatibility
+# Install RKNN Toolkit Lite 2 wheel and copy librknnrt.so to /usr/lib
+RUN git clone -b v1.6.0 --depth 1 https://github.com/rockchip-linux/rknn-toolkit2.git /tmp/rknn-toolkit2 && \
+    cp /tmp/rknn-toolkit2/rknn-api/Linux/rknn_api_sdk/lib/aarch64/librknnrt.so /usr/lib/ && \
+    pip3 install --no-cache-dir /tmp/rknn-toolkit2/rknn-toolkit-lite2/packages/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl && \
+    rm -rf /tmp/rknn-toolkit2
+
+# Install Flask and Pillow for the simple HTTP MJPEG stream
+RUN pip3 install --no-cache-dir flask pillow
+
+# Build the workspace for the new yolov8_npu node
+WORKDIR /ros2_ws
+RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
+    colcon build --symlink-install --packages-select bob_edge \
+    --event-handlers console_direct+
+
+# Secure permissions
+RUN chown -R root:root /ros2_ws
+
+USER rosuser
+WORKDIR /home/rosuser
+
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["ros2", "run", "bob_edge", "yolov8_npu"]

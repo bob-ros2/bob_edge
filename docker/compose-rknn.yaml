@@ -1,0 +1,38 @@
+name: agent-edge-rknn
+
+services:
+  # -- YOLOv8 NPU INFERENCE NODE --
+  yolov8-npu:
+    image: ghcr.io/bob-ros2/bob-edge-rknn:latest
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile.rknn
+      args:
+        BASE_IMAGE: ghcr.io/bob-ros2/bob-edge:latest
+    container_name: agent-yolo-npu
+    ports:
+      - "8080:8080"  # HTTP Port for MJPEG Stream
+    networks:
+      - agent-net
+    dns:
+      - 192.168.32.100
+      - 8.8.8.8
+    env_file:
+      - ../.env
+      - /volume1/ros/secrets/edge_agent.env
+    environment:
+      - AGENT_ID=${AGENT_ID:-main_agent}
+    devices:
+      - /dev/rknpu:/dev/rknpu      # Expose NPU
+      - /dev/video0:/dev/video0    # Expose USB Camera
+    privileged: true               # Needed for clean access to USB camera and NPU hardware
+    restart: on-failure
+    volumes:
+      - ../:/ros2_ws/src/bob_edge:ro
+      - /volume1/ros/agent:/home/rosuser/agent
+      - /volume1/ros/agent/tmp:/tmp
+    command: ros2 run bob_edge yolov8_npu
+
+networks:
+  agent-net:
+    external: true
