@@ -12,19 +12,15 @@ RUN apt-get update && apt-get install -y \
     libxslt1-dev \
     zlib1g-dev \
     git \
-    git-lfs \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and install RKNPU2 runtime library (librknnrt.so) for RK3588 matching driver v0.9.3
 RUN curl -L -o /usr/lib/librknnrt.so https://github.com/airockchip/rknpu2/raw/v1.6.0/runtime/RK3588/Linux/librknn_api/aarch64/librknnrt.so
 
-# Initialize git-lfs and clone only the necessary wheel file to save space and bandwidth
-RUN git lfs install && \
-    GIT_LFS_SKIP_SMUDGE=1 git clone -b v1.6.0 --depth 1 https://github.com/airockchip/rknn-toolkit2.git /tmp/rknn-toolkit2 && \
-    cd /tmp/rknn-toolkit2 && \
-    git lfs pull --include="rknn-toolkit-lite2/packages/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl" && \
-    pip3 install --no-cache-dir rknn-toolkit-lite2/packages/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl && \
-    rm -rf /tmp/rknn-toolkit2
+# Download and install RKNN Toolkit Lite 2 python wheel directly using the corrected folder path (with underscores)
+RUN curl -L -o /tmp/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl https://github.com/airockchip/rknn-toolkit2/raw/v1.6.0/rknn_toolkit_lite2/packages/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl && \
+    pip3 install --no-cache-dir /tmp/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl && \
+    rm /tmp/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl
 
 # Install Flask and Pillow for the simple HTTP MJPEG stream
 RUN pip3 install --no-cache-dir flask pillow
