@@ -14,12 +14,13 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone specific branch v1.6.0 for NPU driver v0.9.3 compatibility
-# Install RKNN Toolkit Lite 2 wheel and copy librknnrt.so to /usr/lib
-RUN git clone -b v1.6.0 --depth 1 https://github.com/rockchip-linux/rknn-toolkit2.git /tmp/rknn-toolkit2 && \
-    cp /tmp/rknn-toolkit2/rknn-api/Linux/rknn_api_sdk/lib/aarch64/librknnrt.so /usr/lib/ && \
-    pip3 install --no-cache-dir /tmp/rknn-toolkit2/rknn-toolkit-lite2/packages/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl && \
-    rm -rf /tmp/rknn-toolkit2
+# Download and install RKNPU2 runtime library (librknnrt.so) for RK3588 matching driver v0.9.3
+RUN curl -L -o /usr/lib/librknnrt.so https://github.com/airockchip/rknpu2/raw/v1.6.0/runtime/RK3588/Linux/librknn_api/aarch64/librknnrt.so
+
+# Download and install RKNN Toolkit Lite 2 python wheel directly to save time and disk space
+RUN curl -L -o /tmp/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl https://github.com/airockchip/rknn-toolkit2/raw/v1.6.0/rknn-toolkit-lite2/packages/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl && \
+    pip3 install --no-cache-dir /tmp/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl && \
+    rm /tmp/rknn_toolkit_lite2-1.6.0-cp310-cp310-linux_aarch64.whl
 
 # Install Flask and Pillow for the simple HTTP MJPEG stream
 RUN pip3 install --no-cache-dir flask pillow
