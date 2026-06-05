@@ -1,6 +1,6 @@
 services:
   relay1:
-    image: scsibug/nostr-rs-relay:latest
+    image: nostr-rs-relay:local
     build:
       context: https://github.com/scsibug/nostr-rs-relay.git
     container_name: nostr-relay-1
@@ -13,7 +13,7 @@ services:
     restart: unless-stopped
 
   relay2:
-    image: scsibug/nostr-rs-relay:latest
+    image: nostr-rs-relay:local
     build:
       context: https://github.com/scsibug/nostr-rs-relay.git
     container_name: nostr-relay-2
@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
 
   relay3:
-    image: scsibug/nostr-rs-relay:latest
+    image: nostr-rs-relay:local
     build:
       context: https://github.com/scsibug/nostr-rs-relay.git
     container_name: nostr-relay-3
