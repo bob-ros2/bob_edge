@@ -24,11 +24,22 @@ from datetime import datetime, timezone, timedelta
 # Configuration
 # ---------------------------------------------------------------------------
 
-DEFAULT_RELAYS = [
-    'ws://localhost:8781',
-    'ws://localhost:8782',
-    'ws://localhost:8783',
-]
+# Configure default relays based on environment (Docker auto-detection)
+if os.environ.get('NOSTR_RELAYS'):
+    DEFAULT_RELAYS = [r.strip() for r in os.environ['NOSTR_RELAYS'].split(',') if r.strip()]
+elif os.path.exists('/.dockerenv') or os.path.exists('/run/.containerenv'):
+    DEFAULT_RELAYS = [
+        'ws://nostr-relay-1:8080',
+        'ws://nostr-relay-2:8080',
+        'ws://nostr-relay-3:8080',
+    ]
+else:
+    DEFAULT_RELAYS = [
+        'ws://localhost:8781',
+        'ws://localhost:8782',
+        'ws://localhost:8783',
+    ]
+
 
 # Agent Memory Event Kinds
 KIND_TEXT_NOTE = 1

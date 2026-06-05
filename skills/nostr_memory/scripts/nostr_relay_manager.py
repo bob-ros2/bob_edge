@@ -41,7 +41,15 @@ if not COMPOSE_FILE:
     COMPOSE_FILE = POSSIBLE_PATHS[0]
 
 RELAY_NAMES = ['relay1', 'relay2', 'relay3']
-RELAY_PORTS = {'relay1': 8781, 'relay2': 8782, 'relay3': 8783}
+
+# Docker auto-detection for testing connectivity
+IS_DOCKER = os.path.exists('/.dockerenv') or os.path.exists('/run/.containerenv')
+if IS_DOCKER:
+    RELAY_PORTS = {'relay1': 8080, 'relay2': 8080, 'relay3': 8080}
+    RELAY_HOSTS = {'relay1': 'nostr-relay-1', 'relay2': 'nostr-relay-2', 'relay3': 'nostr-relay-3'}
+else:
+    RELAY_PORTS = {'relay1': 8781, 'relay2': 8782, 'relay3': 8783}
+    RELAY_HOSTS = {'relay1': 'localhost', 'relay2': 'localhost', 'relay3': 'localhost'}
 
 
 def _run_compose(args_list, timeout=60):
@@ -201,19 +209,20 @@ def action_test(relay_filter=None):
     """Tests reachability of all relays via curl."""
     print('🔍 Testing relay connectivity...')
     for rname in RELAY_NAMES:
+        host = RELAY_HOSTS[rname]
         port = RELAY_PORTS[rname]
         try:
             result = subprocess.run(
                 ['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}',
-                 f'http://localhost:{port}/'],
+                 f'http://{host}:{port}/'],
                 capture_output=True, text=True, timeout=5
             )
             if result.stdout.strip() in ['200', '400']:
-                print(f'  ✅ {rname} (Port {port}): Reachable (HTTP {result.stdout.strip()})')
+                print(f'  ✅ {rname} ({host}:{port}): Reachable (HTTP {result.stdout.strip()})')
             else:
-                print(f'  ⚠️  {rname} (Port {port}): Responded with HTTP {result.stdout.strip()}')
+                print(f'  ⚠️  {rname} ({host}:{port}): Responded with HTTP {result.stdout.strip()}')
         except Exception as e:
-            print(f'  ❌ {rname} (Port {port}): Unreachable – {e}')
+            print(f'  ❌ {rname} ({host}:{port}): Unreachable – {e}')
 
 
 def main():
