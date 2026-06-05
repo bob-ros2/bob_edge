@@ -50,6 +50,16 @@ def scratchpad_read(agent_id):
     val = r.get(key)
     if val is None:
         print(f'No scratchpad found for agent "{agent_id}".')
+        try:
+            state_keys = r.keys('state:now:*')
+            if state_keys:
+                categories = [k.split(':')[-1] for k in state_keys]
+                print('\n[HINT] Active system states are available in Redis!')
+                print('You can read them using:')
+                for cat in categories:
+                    print(f'  --action get_state --category {cat}')
+        except Exception:
+            pass
     else:
         print(val)
 
