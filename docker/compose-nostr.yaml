@@ -1,6 +1,8 @@
 services:
   relay1:
     image: scsibug/nostr-rs-relay:latest
+    build:
+      context: https://github.com/scsibug/nostr-rs-relay.git
     container_name: nostr-relay-1
     ports:
       - "8781:8080"
@@ -12,6 +14,8 @@ services:
 
   relay2:
     image: scsibug/nostr-rs-relay:latest
+    build:
+      context: https://github.com/scsibug/nostr-rs-relay.git
     container_name: nostr-relay-2
     ports:
       - "8782:8080"
@@ -23,6 +27,8 @@ services:
 
   relay3:
     image: scsibug/nostr-rs-relay:latest
+    build:
+      context: https://github.com/scsibug/nostr-rs-relay.git
     container_name: nostr-relay-3
     ports:
       - "8783:8080"
