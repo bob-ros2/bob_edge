@@ -32,6 +32,7 @@ services:
       - /volume1/ros/agent:/home/rosuser/agent
       - /volume1/ros/agent/tmp:/tmp
       - /dev:/dev                  # Mount entire /dev to support USB camera hot-plugging
+      - /sys/kernel/debug:/sys/kernel/debug:ro
     command: ros2 run bob_edge yolov8_npu
 
 networks:

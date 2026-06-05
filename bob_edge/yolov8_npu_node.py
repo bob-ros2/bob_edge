@@ -231,7 +231,10 @@ class YOLOv8NPU(Node):
             try:
                 with open("/sys/kernel/debug/rknpu/load", "r") as f:
                     self.npu_load_str = f.read().strip()
-            except Exception:
+            except Exception as e:
+                if not hasattr(self, '_logged_npu_load_error'):
+                    self.get_logger().warn(f"Cannot read NPU load: {e}. If running in Docker, ensure /sys/kernel/debug is mounted and readable.")
+                    self._logged_npu_load_error = True
                 self.npu_load_str = "Core0: N/A"
         else:
             # Simulate slight load fluctuations for demo
