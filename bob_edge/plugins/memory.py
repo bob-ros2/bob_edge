@@ -837,15 +837,23 @@ class MemoryPlugin(BasePlugin):
             this.modal = document.getElementById("inspect-modal");
             this.modalTitle = document.getElementById("modal-title");
             this.modalJson = document.getElementById("modal-json");
-
             // Initial data request
-            sendToPlugin('memory', 'request_memory_data', {});
+            function requestInitialData() {
+                if (typeof ws !== 'undefined' && ws.readyState === WebSocket.OPEN) {
+                    sendToPlugin('memory', 'request_memory_data', {});
+                } else {
+                    setTimeout(requestInitialData, 100);
+                }
+            }
+            requestInitialData();
 
             // Polling for fresh keys and database statuses
             setInterval(function() {
-                sendToPlugin('memory', 'request_memory_data', {});
-                if (self.selectedKey) {
-                    self.refreshCurrentKey();
+                if (typeof ws !== 'undefined' && ws.readyState === WebSocket.OPEN) {
+                    sendToPlugin('memory', 'request_memory_data', {});
+                    if (self.selectedKey) {
+                        self.refreshCurrentKey();
+                    }
                 }
             }, 6000);
         },
