@@ -845,7 +845,7 @@ class MemoryPlugin(BasePlugin):
                     setTimeout(requestInitialData, 100);
                 }
             }
-            requestInitialData();
+            setTimeout(requestInitialData, 100);
 
             // Polling for fresh keys and database statuses
             setInterval(function() {
