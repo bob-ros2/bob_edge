@@ -1,0 +1,42 @@
+services:
+  relay1:
+    image: scsibug/nostr-rs-relay:latest
+    container_name: nostr-relay-1
+    ports:
+      - "8781:8080"
+    volumes:
+      - relay1-data:/usr/src/app/db
+    networks:
+      - agent-net
+    restart: unless-stopped
+
+  relay2:
+    image: scsibug/nostr-rs-relay:latest
+    container_name: nostr-relay-2
+    ports:
+      - "8782:8080"
+    volumes:
+      - relay2-data:/usr/src/app/db
+    networks:
+      - agent-net
+    restart: unless-stopped
+
+  relay3:
+    image: scsibug/nostr-rs-relay:latest
+    container_name: nostr-relay-3
+    ports:
+      - "8783:8080"
+    volumes:
+      - relay3-data:/usr/src/app/db
+    networks:
+      - agent-net
+    restart: unless-stopped
+
+volumes:
+  relay1-data:
+  relay2-data:
+  relay3-data:
+
+networks:
+  agent-net:
+    external: true
